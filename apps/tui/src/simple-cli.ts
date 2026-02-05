@@ -17,7 +17,10 @@ import {
   setToken,
   setUser,
   getUser,
+  clearToken,
   getUsers,
+  getPresence,
+  postLogout,
   postDm,
   getInbox,
   getMessages,
@@ -26,6 +29,51 @@ import {
 } from "./api.js";
 
 const API_POLL_MS = 2000;
+const ONLINE_MS = 2 * 60 * 1000;
+
+function formatLastSeen(ts: number, isOnline: boolean): string {
+  if (isOnline) return "online now";
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return "last seen just now";
+  if (sec < 3600) return "last seen " + Math.floor(sec / 60) + " min ago";
+  if (sec < 86400) return "last seen " + Math.floor(sec / 3600) + " h ago";
+  return "last seen " + Math.floor(sec / 86400) + " d ago";
+}
+
+function formatMessageTime(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return "just now";
+  if (sec < 3600) return Math.floor(sec / 60) + "min ago";
+  if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+  if (sec < 604800) return Math.floor(sec / 86400) + "d ago";
+  return new Date(ts).toLocaleDateString();
+}
+
+/** Word-wrap text to lines of at most maxLen; long words are broken. */
+function wrapText(text: string, maxLen: number): string[] {
+  if (maxLen <= 0 || !text) return text ? [text] : [];
+  const lines: string[] = [];
+  const words = text.split(/\s+/);
+  let line = "";
+  for (const w of words) {
+    const toAdd = line ? line + " " + w : w;
+    if (toAdd.length <= maxLen) {
+      line = toAdd;
+    } else {
+      if (line) lines.push(line);
+      if (w.length <= maxLen) {
+        line = w;
+      } else {
+        for (let i = 0; i < w.length; i += maxLen) {
+          lines.push(w.slice(i, i + maxLen));
+        }
+        line = "";
+      }
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
 interface InboxItem {
   conversationId: string;
@@ -33,6 +81,8 @@ interface InboxItem {
   lastMessageAt: number;
   lastMessagePreview: string | null;
   unreadCount: number;
+  online?: boolean;
+  lastSeenAt?: number | null;
 }
 
 interface Msg {
@@ -79,6 +129,7 @@ const TTY = process.stdout.isTTY;
 const c = {
   reset: TTY ? "\x1b[0m" : "",
   dim: TTY ? "\x1b[2m" : "",
+  faded: TTY ? "\x1b[2m\x1b[90m" : "",
   orange: TTY ? "\x1b[38;5;208m" : "",
   amber: TTY ? "\x1b[33m" : "",
   red: TTY ? "\x1b[91m" : "",
@@ -366,46 +417,74 @@ async function main() {
 
   type Interactive = { rl: readline.Interface; inboxInterval: ReturnType<typeof setInterval> | null; ttyDestroy?: () => void };
 
-  const VIEWPORT_LINES = TTY ? Math.max(5, (process.stdout.rows ?? 24) - 4) : 15;
-  const VIEWPORT_START_ROW = 3;
+  const onlineSet = new Set<string>();
+  const lastSeenAt = new Map<string, number>();
+
+  function getViewportStartRow(): number {
+    return otherUsername && lastSeenAt.has(otherUsername) ? 4 : 3;
+  }
+  function getViewportLines(): number {
+    return TTY ? Math.max(5, (process.stdout.rows ?? 24) - getViewportStartRow() - 2) : 15;
+  }
   const messageBuffer: string[] = [];
 
   function pushToViewport(line: string) {
     messageBuffer.push(line);
-    if (messageBuffer.length > VIEWPORT_LINES) messageBuffer.splice(0, messageBuffer.length - VIEWPORT_LINES);
+    const max = getViewportLines();
+    if (messageBuffer.length > max) messageBuffer.splice(0, messageBuffer.length - max);
   }
 
-  /** Draw only the top bar (line 1 + separator). Fixed position; call once or to refresh "chat: X". */
+  const greenDot = c.green + "●" + c.reset + " ";
+
+  /** Draw only the top bar (line 1, optional last-seen line, separator). */
   function drawTopBar() {
     if (!TTY) return;
     process.stdout.write("\x1b[1;1H");
-    const chatPart = otherUsername ? "chat: " + c.orange + otherUsername + c.reset : c.dim + "—" + c.reset;
+    const chatPart = otherUsername
+      ? "chat: " + (onlineSet.has(otherUsername) ? greenDot : "") + c.orange + otherUsername + c.reset
+      : c.dim + "—" + c.reset;
     const bar =
       "  " + c.orange + "agentchat" + c.reset + "  " + c.dim + "│" + c.reset + "  you: " + c.amber + me + c.reset + "  " + c.dim + "│" + c.reset + "  " + chatPart;
     process.stdout.write(bar + "\n");
+    const ts = otherUsername ? lastSeenAt.get(otherUsername) : undefined;
+    if (ts != null) {
+      process.stdout.write("  " + c.dim + formatLastSeen(ts, onlineSet.has(otherUsername!)) + c.reset + "\n");
+    }
     process.stdout.write(c.dim + "─".repeat(60) + c.reset + "\n");
   }
 
-  /** Redraw only the viewport and input area (below the top bar). Does not clear or touch the top bar. */
+  /** Redraw only the viewport and input area (below the top bar). */
   function drawViewportAndInput() {
     if (!TTY) return;
-    process.stdout.write("\x1b[" + VIEWPORT_START_ROW + ";1H");
+    process.stdout.write("\x1b[" + getViewportStartRow() + ";1H");
     process.stdout.write("\x1b[J");
-    const lines = messageBuffer.slice(-VIEWPORT_LINES);
-    for (let i = 0; i < VIEWPORT_LINES - lines.length; i++) process.stdout.write("\n");
+    const max = getViewportLines();
+    const lines = messageBuffer.slice(-max);
+    for (let i = 0; i < max - lines.length; i++) process.stdout.write("\n");
     for (const l of lines) process.stdout.write(l + "\n");
     process.stdout.write(c.dim + "─".repeat(60) + c.reset + "\n");
   }
 
   function out(msg: string, interactive?: Interactive) {
-    if (TTY && interactive) pushToViewport(msg);
-    else print(msg);
+    const lines = msg.split("\n");
+    if (TTY && interactive) lines.forEach((line) => pushToViewport(line));
+    else lines.forEach((line) => print(line));
   }
 
   function formatMsg(m: Msg): string {
     const isMe = m.fromUser === me;
     const who = isMe ? c.amber + m.fromUser + c.reset : c.orange + m.fromUser + c.reset;
-    return who + c.dim + " │ " + c.reset + m.body;
+    const when = c.faded + formatMessageTime(m.createdAt) + c.reset;
+    const prefixLen = m.fromUser.length + 3; // " │ "
+    const maxLineLen = Math.max(20, (process.stdout.columns ?? 72) - prefixLen - 1);
+    const bodyLines = wrapText(m.body, maxLineLen);
+    const prefix = who + c.dim + " │ " + c.reset;
+    const indent = " ".repeat(prefixLen);
+    const msgLines =
+      bodyLines.length === 0
+        ? [prefix]
+        : bodyLines.map((ln, i) => (i === 0 ? prefix + ln : indent + ln));
+    return msgLines.join("\n") + "\n" + when;
   }
 
   /** Run one line of input; returns when done. Does not call prompt(). */
@@ -420,6 +499,18 @@ async function main() {
 
       if (cmd === "/quit") {
         if (interactive) out(c.dim + "bye." + c.reset, interactive);
+        if (interactive) {
+          interactive.ttyDestroy?.();
+          interactive.rl.close();
+          if (interactive.inboxInterval) clearInterval(interactive.inboxInterval);
+          process.exit(0);
+        }
+        return;
+      }
+      if (cmd === "/logout") {
+        await postLogout();
+        clearToken();
+        if (interactive) out(c.dim + "logged out." + c.reset, interactive);
         if (interactive) {
           interactive.ttyDestroy?.();
           interactive.rl.close();
@@ -447,9 +538,14 @@ async function main() {
           process.exit(1);
         }
         if (res.ok && res.data && typeof res.data === "object" && "users" in res.data) {
-          const users = (res.data as { users: string[] }).users;
+          const users = (res.data as { users: string[]; online?: string[] }).users;
+          const online = (res.data as { users: string[]; online?: string[] }).online ?? [];
+          online.forEach((u) => onlineSet.add(u));
           out(c.dim + "users:" + c.reset, interactive);
-          users.forEach((u) => out("  " + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset), interactive));
+          users.forEach((u) => {
+            const dot = online.includes(u) ? greenDot : "";
+            out("  " + dot + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset), interactive);
+          });
         } else {
           out(c.red + "Failed: " + (res.error ?? "") + c.reset, interactive);
         }
@@ -468,9 +564,15 @@ async function main() {
           } else {
             out(c.dim + "inbox ─" + c.reset, interactive);
             list.forEach((e) => {
+              if (e.online) onlineSet.add(e.otherUsername);
+              if (e.lastSeenAt != null) lastSeenAt.set(e.otherUsername, e.lastSeenAt);
+              const dot = e.online ? greenDot : "";
               const unread = e.unreadCount > 0 ? c.red + " " + e.unreadCount + " unread" + c.reset : "";
-              out("  " + c.orange + e.otherUsername + c.reset + unread, interactive);
+              out("  " + dot + c.orange + e.otherUsername + c.reset + unread, interactive);
               out(c.dim + "    └ " + (e.lastMessagePreview ?? "").slice(0, 48) + c.reset, interactive);
+              if (e.lastSeenAt != null) {
+                out(c.dim + "    " + formatLastSeen(e.lastSeenAt, !!e.online) + c.reset, interactive);
+              }
             });
           }
         } else {
@@ -515,7 +617,7 @@ async function main() {
         messages.forEach((m) => out(formatMsg(m), interactive));
         return;
       }
-      out(c.dim + "commands: " + c.reset + "/users /dm /inbox /history /new /whoami /quit", interactive);
+      out(c.dim + "commands: " + c.reset + "/users /dm /inbox /history /new /whoami /logout /quit", interactive);
       return;
     }
 
@@ -549,11 +651,11 @@ async function main() {
   if (!TTY) {
     print("");
     print(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
-    print(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
+    print(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /logout  /quit" + c.reset);
     print("");
   } else {
     pushToViewport(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
-    pushToViewport(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
+    pushToViewport(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /logout  /quit" + c.reset);
   }
 
   const ttyInteractive = openTTYInputStream();
@@ -565,12 +667,38 @@ async function main() {
       });
   const rl = readline.createInterface({ input: interactiveInput, output: process.stdout });
   inboxInterval = setInterval(async () => {
-    if (!conversationId) return;
-    const before = lastReadId;
-    await fetchMessages();
-    const newOnes = before == null ? messages : messages.filter((m) => m.id > before);
-    newOnes.forEach((m) => pushToViewport(formatMsg(m)));
+    if (conversationId) {
+      const before = lastReadId;
+      await fetchMessages();
+      const newOnes = before == null ? messages : messages.filter((m) => m.id > before);
+      newOnes.forEach((m) => formatMsg(m).split("\n").forEach((line) => pushToViewport(line)));
+      if (newOnes.length > 0) {
+        if (TTY) {
+          newOnes.forEach((m) => process.stdout.write("\n  " + c.dim + "[new] " + c.reset + formatMsg(m) + "\n"));
+        } else {
+          newOnes.forEach((m) => print("  [new] " + formatMsg(m)));
+        }
+      }
+    }
+    const pres = await getPresence();
+    if (pres.ok && pres.data && typeof pres.data === "object" && "online" in pres.data) {
+      const d = pres.data as { online: string[]; lastSeenAt?: Record<string, number> };
+      onlineSet.clear();
+      (d.online ?? []).forEach((u) => onlineSet.add(u));
+      if (d.lastSeenAt) {
+        Object.entries(d.lastSeenAt).forEach(([u, t]) => lastSeenAt.set(u, t));
+      }
+    }
   }, API_POLL_MS);
+  getPresence().then((pres) => {
+    if (pres.ok && pres.data && typeof pres.data === "object" && "online" in pres.data) {
+      const d = pres.data as { online: string[]; lastSeenAt?: Record<string, number> };
+      (d.online ?? []).forEach((u) => onlineSet.add(u));
+      if (d.lastSeenAt) {
+        Object.entries(d.lastSeenAt).forEach(([u, t]) => lastSeenAt.set(u, t));
+      }
+    }
+  });
 
   const interactive: Interactive = { rl, inboxInterval, ttyDestroy: ttyInteractive?.destroy };
   const promptStr = c.orange + "$ " + c.reset;

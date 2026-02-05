@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Box, Text, useInput, useApp } from "ink";
+import { Box, Text, useInput, useApp, useStdout } from "ink";
 import TextInput from "ink-text-input";
 import {
   getUsers,
@@ -12,8 +12,42 @@ import {
 } from "./api.js";
 import { isLineInputMode, setLineInputContext } from "./line-input.js";
 
-const API_POLL_MS = 1500;
+const API_POLL_MS = 1200;
 const INBOX_POLL_MS = 3000;
+
+function formatMessageTime(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return "just now";
+  if (sec < 3600) return Math.floor(sec / 60) + "min ago";
+  if (sec < 86400) return Math.floor(sec / 3600) + "h ago";
+  if (sec < 604800) return Math.floor(sec / 86400) + "d ago";
+  return new Date(ts).toLocaleDateString();
+}
+
+function wrapText(text: string, maxLen: number): string[] {
+  if (maxLen <= 0 || !text) return text ? [text] : [];
+  const lines: string[] = [];
+  const words = text.split(/\s+/);
+  let line = "";
+  for (const w of words) {
+    const toAdd = line ? line + " " + w : w;
+    if (toAdd.length <= maxLen) {
+      line = toAdd;
+    } else {
+      if (line) lines.push(line);
+      if (w.length <= maxLen) {
+        line = w;
+      } else {
+        for (let i = 0; i < w.length; i += maxLen) {
+          lines.push(w.slice(i, i + maxLen));
+        }
+        line = "";
+      }
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
 
 interface InboxItem {
   conversationId: string;
@@ -21,6 +55,7 @@ interface InboxItem {
   lastMessageAt: number;
   lastMessagePreview: string | null;
   unreadCount: number;
+  otherUserRegistered?: boolean;
 }
 
 interface Msg {
@@ -39,6 +74,8 @@ export function ChatScreen({
   onUnauthorized?: () => void;
 }) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const columns = stdout?.columns ?? 80;
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [otherUsername, setOtherUsername] = useState<string | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
@@ -48,6 +85,13 @@ export function ChatScreen({
   const [error, setError] = useState("");
   const [cmdOutput, setCmdOutput] = useState<string | null>(null);
   const lastReadIdRef = useRef<number | null>(null);
+
+  const currentOtherUnregistered =
+    conversationId && otherUsername
+      ? inbox.find(
+          (e) => e.conversationId === conversationId && e.otherUsername === otherUsername
+        )?.otherUserRegistered === false
+      : false;
 
   const fetchInbox = useCallback(async () => {
     const res = await getInbox();
@@ -73,7 +117,8 @@ export function ChatScreen({
 
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return;
-    const res = await getMessages(conversationId, undefined, 50);
+    const cid = conversationId;
+    const res = await getMessages(cid, undefined, 50);
     if (res.status === 401) {
       onUnauthorized?.();
       return;
@@ -84,10 +129,13 @@ export function ChatScreen({
       const maxId = list.length ? Math.max(...list.map((m) => m.id)) : 0;
       if (maxId > 0 && (lastReadIdRef.current == null || maxId > lastReadIdRef.current)) {
         lastReadIdRef.current = maxId;
-        await postRead(conversationId, maxId);
+        await postRead(cid, maxId);
       }
     }
   }, [conversationId, onUnauthorized]);
+
+  const fetchMessagesRef = useRef(fetchMessages);
+  fetchMessagesRef.current = fetchMessages;
 
   useEffect(() => {
     fetchInbox();
@@ -101,11 +149,12 @@ export function ChatScreen({
 
   useEffect(() => {
     if (!conversationId) return;
-    fetchMessages();
     lastReadIdRef.current = null;
-    const msgInterval = setInterval(fetchMessages, API_POLL_MS);
+    const tick = () => void fetchMessagesRef.current?.();
+    tick();
+    const msgInterval = setInterval(tick, API_POLL_MS);
     return () => clearInterval(msgInterval);
-  }, [conversationId, fetchMessages]);
+  }, [conversationId]);
 
   useInput((input, key) => {
     if (key.escape) exit();
@@ -176,7 +225,7 @@ export function ChatScreen({
           setMessages([]);
           setCmdOutput(null);
         } else {
-          setCmdOutput("Failed: " + (res.error ?? "Unknown"));
+          setCmdOutput("User not found or not registered. " + (res.error ?? "Cannot start chat."));
         }
         return;
       }
@@ -223,6 +272,14 @@ export function ChatScreen({
       return;
     }
 
+    const currentInboxEntry = inbox.find(
+      (e) => e.conversationId === conversationId && e.otherUsername === otherUsername
+    );
+    if (currentInboxEntry && currentInboxEntry.otherUserRegistered === false) {
+      setError("This user is not registered. You cannot send messages to this account.");
+      return;
+    }
+
     const res = await postMessage(conversationId, otherUsername, line);
     if (res.status === 401) {
       onUnauthorized?.();
@@ -236,7 +293,7 @@ export function ChatScreen({
       fetchMessages();
       fetchUnread();
     } else {
-      setError(res.error ?? "Send failed");
+      setError(res.error ?? "Send failed. They may no longer be registered.");
     }
   };
 
@@ -260,21 +317,40 @@ export function ChatScreen({
         </Text>
       </Box>
       <Box flexDirection="column" flexGrow={1} minHeight={12} paddingX={1} paddingY={1}>
-        {messages.length === 0 && !cmdOutput && !error && (
+        {currentOtherUnregistered ? (
+          <Box marginBottom={1}>
+            <Text color="red" bold>
+              This user is not registered. You cannot send messages to this account.
+            </Text>
+          </Box>
+        ) : null}
+        {messages.length === 0 && !cmdOutput && !error && !currentOtherUnregistered && (
           <Text dimColor>
             Use /dm &lt;username&gt; to open a chat. /inbox = list conversations. /quit = exit.
           </Text>
         )}
-        {messages.map((m) => (
-          <Box key={m.id}>
-            <Text color="gray">
-              [{new Date(m.createdAt).toISOString().replace("T", " ").slice(0, 19)}]{" "}
-            </Text>
-            <Text bold>{m.fromUser}</Text>
-            <Text> → {m.toUser}: </Text>
-            <Text>{m.body}</Text>
-          </Box>
-        ))}
+        {messages.map((m) => {
+          const prefixLen = m.fromUser.length + m.toUser.length + 5; // " → " + ": "
+          const maxLineLen = Math.max(20, columns - prefixLen - 2);
+          const bodyLines = wrapText(m.body, maxLineLen);
+          return (
+            <Box key={m.id} flexDirection="column" marginBottom={1}>
+              <Box>
+                <Text bold>{m.fromUser}</Text>
+                <Text> → {m.toUser}: </Text>
+                <Text>{bodyLines[0] ?? ""}</Text>
+              </Box>
+              {bodyLines.slice(1).map((line, i) => (
+                <Box key={i} paddingLeft={prefixLen}>
+                  <Text>{line}</Text>
+                </Box>
+              ))}
+              <Box>
+                <Text dimColor color="gray">{formatMessageTime(m.createdAt)}</Text>
+              </Box>
+            </Box>
+          );
+        })}
         {cmdOutput ? (
           <Box marginTop={1}>
             <Text color="green">{cmdOutput}</Text>

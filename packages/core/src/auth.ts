@@ -10,17 +10,27 @@ export async function register(username: string, password: string): Promise<User
   if (existing) return null;
   const hash = await argon2.hash(password, { type: argon2.argon2id });
   const now = Date.now();
-  const result = d
-    .prepare(
-      "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)"
-    )
-    .run(normalized, hash, now);
-  return {
-    id: result.lastInsertRowid as number,
-    username: normalized,
-    password_hash: hash,
-    created_at: now,
-  };
+  try {
+    const result = d
+      .prepare(
+        "INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)"
+      )
+      .run(normalized, hash, now);
+    return {
+      id: result.lastInsertRowid as number,
+      username: normalized,
+      password_hash: hash,
+      created_at: now,
+    };
+  } catch (err: unknown) {
+    // UNIQUE constraint violation (e.g. race with another registration)
+    const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "";
+    const msg = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
+    if (code === "SQLITE_CONSTRAINT_UNIQUE" || code === "SQLITE_CONSTRAINT" || /unique|UNIQUE/.test(msg)) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function login(username: string, password: string): Promise<User | null> {

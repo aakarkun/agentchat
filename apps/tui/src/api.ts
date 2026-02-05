@@ -115,3 +115,11 @@ export async function postRead(conversationId: string, lastReadMessageId: number
 export async function getUnreadCount() {
   return fetchApi("/unread");
 }
+
+export async function getPresence() {
+  return fetchApi("/presence");
+}
+
+export async function postLogout() {
+  return fetchApi("/logout", { method: "POST" });
+}

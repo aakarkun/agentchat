@@ -119,6 +119,7 @@
     }
     #header a { color: var(--link); text-decoration: none; }
     #header a:hover { text-decoration: underline; }
+    #header #btnLogout { margin-left: auto; }
 
     #main { display: flex; flex: 1; min-height: 0; }
     #sidebar {
@@ -145,9 +146,11 @@
     }
     #sidebar .conv:hover { background: var(--bg); }
     #sidebar .conv.active { background: var(--bg); border-left-color: var(--accent); }
-    #sidebar .conv .name { color: var(--text); }
+    #sidebar .conv .name { color: var(--text); display: flex; align-items: center; gap: 0.35rem; }
+    #sidebar .conv .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
     #sidebar .conv .unread { color: var(--error); font-size: 11px; }
     #sidebar .conv .preview { color: var(--dim); font-size: 11px; max-height: 2em; overflow: hidden; }
+    #sidebar .conv .last-seen { color: var(--dim); font-size: 11px; margin-top: 0.2rem; }
     #new-chat {
       display: flex;
       gap: 0.4rem;
@@ -177,7 +180,13 @@
     #new-chat button:hover { background: var(--border); }
 
     #chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+    #chatHeader { padding: 0.5rem 1rem; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; }
+    #chatHeader .row { display: flex; align-items: center; gap: 0.35rem; }
+    #chatHeader .with { color: var(--accent-other); }
+    #chatHeader .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+    #chatHeader .last-seen { font-size: 11px; color: var(--dim); display: block; }
     #chat .empty { padding: 2rem; text-align: center; color: var(--dim); font-size: 12px; }
+    #chat .empty .agentchat-emoji { color: var(--accent); font-weight: 600; margin-right: 0.35em; }
     #messages {
       flex: 1;
       overflow-y: auto;
@@ -191,7 +200,7 @@
     }
     #messages .msg .who .user { color: var(--accent-other); }
     #messages .msg.me .who .user { color: var(--me); }
-    #messages .msg .time { font-size: 11px; color: var(--dim); margin-left: 0.5rem; }
+    #messages .msg .time { font-size: 11px; color: var(--dim); margin-left: 0.5rem; cursor: help; }
     #messages .msg .body {
       word-break: break-word;
       line-height: 1.5;
@@ -265,6 +274,18 @@
       cursor: pointer;
     }
     #send button:hover { background: var(--border); }
+    #send button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #send input:disabled { opacity: 0.7; cursor: not-allowed; }
+    .chat-warning {
+      padding: 0.5rem 1rem;
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--error);
+      color: var(--error);
+      font-size: 12px;
+      margin: 0 1rem;
+    }
+    .new-chat-error { color: var(--error); font-size: 11px; margin-top: 0.25rem; }
+    #sendError { color: var(--error); font-size: 12px; padding: 0.25rem 0; }
   </style>
 </head>
 <body>
@@ -306,7 +327,9 @@
     <div id="header">
       <span class="term-prompt">agentchat@</span><span class="me" id="username"></span>
       <span id="unreadBadge" class="unread" style="display:none">0</span>
+      <a href="#" id="btnRefresh" title="refresh inbox and messages">refresh</a>
       <a href="/">reload</a>
+      <a href="#" id="btnLogout">logout</a>
     </div>
     <div id="main">
       <div id="sidebar">
@@ -314,12 +337,19 @@
         <div id="new-chat">
           <input type="text" id="newUser" placeholder="user" />
           <button type="button" id="btnNewChat">open</button>
+          <div id="newChatError" class="new-chat-error"></div>
         </div>
         <div id="inbox"></div>
       </div>
       <div id="chat">
-        <div id="chatEmpty" class="empty">$ select a conversation or open a new chat</div>
+        <div id="chatHeader" style="display:none">
+          <div class="row"><span class="with" id="chatWith"></span></div>
+          <span id="chatLastSeen" class="last-seen"></span>
+        </div>
+        <div id="chatWarning" class="chat-warning" style="display:none"></div>
+        <div id="chatEmpty" class="empty"><span class="agentchat-emoji">&gt;_</span> select a conversation or open a new chat</div>
         <div id="messages" style="display:none"></div>
+        <div id="sendError" style="display:none"></div>
         <div id="send" style="display:none">
           <span class="prompt">$</span>
           <input type="text" id="msgInput" placeholder="message (markdown supported)..." />
@@ -335,6 +365,27 @@
     let currentConvId = null;
     let currentWith = null;
     let pollTimer = null;
+    let onlineSet = new Set();
+    let lastSeenAtMap = new Map();
+    let inboxList = [];
+
+    function formatLastSeen(ts, isOnline) {
+      if (isOnline) return 'online now';
+      const sec = Math.floor((Date.now() - ts) / 1000);
+      if (sec < 60) return 'last seen just now';
+      if (sec < 3600) return 'last seen ' + Math.floor(sec / 60) + ' min ago';
+      if (sec < 86400) return 'last seen ' + Math.floor(sec / 3600) + ' h ago';
+      return 'last seen ' + Math.floor(sec / 86400) + ' d ago';
+    }
+
+    function formatMessageTime(ts) {
+      const sec = Math.floor((Date.now() - ts) / 1000);
+      if (sec < 60) return 'just now';
+      if (sec < 3600) return Math.floor(sec / 60) + ' min ago';
+      if (sec < 86400) return Math.floor(sec / 3600) + ' h ago';
+      if (sec < 604800) return Math.floor(sec / 86400) + ' d ago';
+      return new Date(ts).toLocaleDateString();
+    }
 
     marked.setOptions({ breaks: true });
 
@@ -343,16 +394,16 @@
     }
 
     async function api(path, opts = {}) {
+      const isGet = !opts.method || opts.method === 'GET';
       const res = await fetch(API + path, {
         ...opts,
+        cache: isGet ? 'no-store' : undefined,
         headers: { 'Content-Type': 'application/json', ...auth(), ...(opts.headers || {}) },
         body: opts.body ? JSON.stringify(opts.body) : undefined,
       });
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
-        token = ''; me = '';
-        document.getElementById('app').classList.remove('ready');
-        document.getElementById('login').style.display = 'block';
+        clearSession();
         return { ok: false, status: 401 };
       }
       return { ok: res.ok, status: res.status, data };
@@ -361,6 +412,47 @@
     function setLoginError(msg) {
       document.getElementById('loginError').textContent = msg || '';
     }
+
+    function clearSession() {
+      token = '';
+      me = '';
+      currentConvId = null;
+      currentWith = null;
+      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      document.getElementById('app').classList.remove('ready');
+      document.getElementById('login').style.display = 'block';
+      document.getElementById('loginUser').value = '';
+      document.getElementById('loginPass').value = '';
+      setLoginError('');
+    }
+
+    async function logout() {
+      try {
+        await Promise.race([
+          api('/logout', { method: 'POST' }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000)),
+        ]);
+      } catch (_) {}
+      clearSession();
+    }
+
+    document.getElementById('btnLogout').onclick = (e) => {
+      e.preventDefault();
+      logout();
+    };
+
+    function refreshData() {
+      return loadInbox().then(() => {
+        if (currentConvId) return loadMessages();
+      });
+    }
+
+    document.getElementById('btnRefresh').onclick = (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnRefresh');
+      btn.style.pointerEvents = 'none';
+      refreshData().finally(() => { btn.style.pointerEvents = ''; });
+    };
 
     function escapeHtml(s) {
       const d = document.createElement('div');
@@ -417,33 +509,99 @@
     };
 
     async function loadInbox() {
-      const r = await api('/inbox');
+      const r = await api('/inbox?t=' + Date.now());
       if (!r.ok) return;
       const list = (r.data?.inbox || []).slice().sort((a, b) => (b.lastMessageAt || 0) - (a.lastMessageAt || 0));
+      inboxList = list;
+      onlineSet = new Set(list.filter(c => c.online).map(c => c.otherUsername));
+      lastSeenAtMap = new Map();
+      list.forEach(c => { if (c.lastSeenAt != null) lastSeenAtMap.set(c.otherUsername, c.lastSeenAt); });
       const unread = list.reduce((n, c) => n + (c.unreadCount || 0), 0);
       const badge = document.getElementById('unreadBadge');
       if (unread > 0) { badge.textContent = unread; badge.style.display = 'inline'; } else { badge.style.display = 'none'; }
       const el = document.getElementById('inbox');
       el.innerHTML = list.map(c => {
         const preview = (c.lastMessagePreview || '').slice(0, 36);
+        const dot = c.online ? '<span class="online-dot" title="online"></span>' : '';
+        const lastSeen = (c.lastSeenAt != null) ? '<div class="last-seen">' + escapeHtml(formatLastSeen(c.lastSeenAt, c.online)) + '</div>' : '';
+        const unreg = c.otherUserRegistered === false ? ' <span class="unread" title="Not registered">!</span>' : '';
         return `<div class="conv ${c.conversationId === currentConvId ? 'active' : ''}" data-id="${escapeHtml(c.conversationId)}" data-with="${escapeHtml(c.otherUsername)}">
-          <div class="name">${escapeHtml(c.otherUsername)}</div>
+          <div class="name">${dot}${escapeHtml(c.otherUsername)}${unreg}</div>
           ${(c.unreadCount || 0) > 0 ? `<div class="unread">${c.unreadCount} unread</div>` : ''}
           <div class="preview">${escapeHtml(preview)}</div>
+          ${lastSeen}
         </div>`;
       }).join('');
       el.querySelectorAll('.conv').forEach(n => {
         n.onclick = () => openConv(n.dataset.id, n.dataset.with);
       });
+      updateChatHeader();
+      updateChatWarning();
+    }
+
+    function updateChatHeader() {
+      const header = document.getElementById('chatHeader');
+      const withEl = document.getElementById('chatWith');
+      const lastSeenEl = document.getElementById('chatLastSeen');
+      if (!currentWith) {
+        header.style.display = 'none';
+        return;
+      }
+      header.style.display = 'flex';
+      withEl.textContent = 'chat: ' + currentWith;
+      const row = header.querySelector('.row');
+      const dot = header.querySelector('.online-dot');
+      if (dot) dot.remove();
+      if (onlineSet.has(currentWith)) {
+        const d = document.createElement('span');
+        d.className = 'online-dot';
+        d.title = 'online';
+        row.insertBefore(d, withEl);
+      }
+      const ts = lastSeenAtMap.get(currentWith);
+      if (ts != null) {
+        lastSeenEl.textContent = formatLastSeen(ts, onlineSet.has(currentWith));
+        lastSeenEl.style.display = 'inline';
+      } else {
+        lastSeenEl.textContent = '';
+        lastSeenEl.style.display = 'none';
+      }
+    }
+
+    function isCurrentOtherUnregistered() {
+      if (!currentConvId) return false;
+      const c = inboxList.find(function (x) { return x.conversationId === currentConvId; });
+      return c && c.otherUserRegistered === false;
+    }
+
+    function updateChatWarning() {
+      const warnEl = document.getElementById('chatWarning');
+      const sendEl = document.getElementById('send');
+      const msgInput = document.getElementById('msgInput');
+      const btnSend = document.getElementById('btnSend');
+      if (isCurrentOtherUnregistered()) {
+        warnEl.textContent = 'This user is not registered. You cannot send messages to this account.';
+        warnEl.style.display = 'block';
+        if (msgInput) { msgInput.disabled = true; msgInput.placeholder = 'Cannot send — user not registered'; }
+        if (btnSend) btnSend.disabled = true;
+      } else {
+        warnEl.style.display = 'none';
+        if (msgInput) { msgInput.disabled = false; msgInput.placeholder = 'message (markdown supported)...'; }
+        if (btnSend) btnSend.disabled = false;
+      }
     }
 
     function openConv(convId, withUser) {
       currentConvId = convId;
       currentWith = withUser;
+      document.getElementById('sendError').style.display = 'none';
+      document.getElementById('sendError').textContent = '';
       document.getElementById('chatEmpty').style.display = 'none';
       document.getElementById('messages').style.display = 'block';
       document.getElementById('send').style.display = 'flex';
       document.querySelectorAll('#inbox .conv').forEach(n => { n.classList.toggle('active', n.dataset.id === convId); });
+      updateChatHeader();
+      updateChatWarning();
       loadMessages();
       api('/read', { method: 'POST', body: { conversationId: convId, lastReadMessageId: 999999 } });
     }
@@ -458,21 +616,26 @@
       const el = document.getElementById('messages');
       el.innerHTML = messages.map(m => {
         const isMe = m.fromUser === me;
-        const time = new Date(m.createdAt).toLocaleString();
+        const relativeTime = formatMessageTime(m.createdAt);
+        const fullTime = new Date(m.createdAt).toLocaleString();
         const bodyHtml = renderMarkdown(m.body);
-        return `<div class="msg ${isMe ? 'me' : ''}"><div class="who"><span class="user">${escapeHtml(m.fromUser)}</span><span class="time">${escapeHtml(time)}</span></div><div class="body">${bodyHtml}</div></div>`;
+        return `<div class="msg ${isMe ? 'me' : ''}"><div class="who"><span class="user">${escapeHtml(m.fromUser)}</span><span class="time" title="${escapeHtml(fullTime)}">${escapeHtml(relativeTime)}</span></div><div class="body">${bodyHtml}</div></div>`;
       }).join('');
       el.scrollTop = el.scrollHeight;
     }
 
     document.getElementById('btnNewChat').onclick = async () => {
       const user = document.getElementById('newUser').value.trim().toLowerCase();
+      const errEl = document.getElementById('newChatError');
+      errEl.textContent = '';
       if (!user || user === me) return;
       document.getElementById('newUser').value = '';
       const r = await api('/dm', { method: 'POST', body: { to: user } });
       if (r.ok && r.data && r.data.conversationId) {
         openConv(r.data.conversationId, r.data.with);
         loadInbox();
+      } else {
+        errEl.textContent = r.data?.error || 'Could not open chat';
       }
     };
 
@@ -482,11 +645,24 @@
     async function sendMessage() {
       const input = document.getElementById('msgInput');
       const body = input.value.trim();
+      const sendErrEl = document.getElementById('sendError');
+      sendErrEl.style.display = 'none';
+      sendErrEl.textContent = '';
       if (!body || !currentConvId || !currentWith) return;
+      if (isCurrentOtherUnregistered()) {
+        sendErrEl.textContent = 'This user is not registered. You cannot send messages.';
+        sendErrEl.style.display = 'block';
+        return;
+      }
       input.value = '';
       const r = await api('/messages', { method: 'POST', body: { conversationId: currentConvId, to: currentWith, body } });
-      if (r.ok) loadMessages();
-      loadInbox();
+      if (r.ok) {
+        loadMessages();
+        loadInbox();
+      } else {
+        sendErrEl.textContent = r.data?.error || 'Failed to send';
+        sendErrEl.style.display = 'block';
+      }
     }
 
     function startPoll() {
@@ -495,6 +671,12 @@
         loadInbox();
         if (currentConvId) loadMessages();
       }, 2500);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          loadInbox();
+          if (currentConvId) loadMessages();
+        }
+      });
     }
   </script>
 </body>

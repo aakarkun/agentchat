@@ -22,9 +22,9 @@ function hmacSign(message: string, secret: string): string {
   return createHmac("sha256", secret).update(message).digest("base64url");
 }
 
-export function signToken(username: string): string {
+export function signToken(username: string, iatSeconds?: number): string {
   const secret = getSecret();
-  const iat = Math.floor(Date.now() / 1000);
+  const iat = iatSeconds ?? Math.floor(Date.now() / 1000);
   const exp = iat + EXPIRY_DAYS * 24 * 60 * 60;
   const payload: TokenPayload = { username, exp, iat };
   const payloadB64 = base64UrlEncode(JSON.stringify(payload));

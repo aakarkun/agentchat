@@ -47,8 +47,28 @@ export function initDb(dbPath: string = DEFAULT_PATH): Database {
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id, id);
     CREATE INDEX IF NOT EXISTS idx_reads_username ON reads(username);
   `);
+  // Migration: add token_valid_after for single-session / logout-everywhere
+  const tableInfo = database.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  if (!tableInfo.some((c) => c.name === "token_valid_after")) {
+    database.run("ALTER TABLE users ADD COLUMN token_valid_after INTEGER");
+  }
   db = database;
   return database;
+}
+
+/** Unix seconds. Tokens with iat < this are invalid (logged out everywhere or superseded by newer login). */
+export function getTokenValidAfter(username: string): number | null {
+  const d = getDb();
+  const row = d
+    .prepare("SELECT token_valid_after FROM users WHERE username = ?")
+    .get(username) as { token_valid_after: number | null } | undefined;
+  const v = row?.token_valid_after;
+  return v != null ? v : null;
+}
+
+export function setTokenValidAfter(username: string, timestampSeconds: number): void {
+  const d = getDb();
+  d.prepare("UPDATE users SET token_valid_after = ? WHERE username = ?").run(timestampSeconds, username);
 }
 
 export function getDb(): Database {
@@ -58,6 +78,13 @@ export function getDb(): Database {
 
 export function conversationId(userA: string, userB: string): string {
   return [userA, userB].sort().join("__");
+}
+
+/** Returns true if the username is registered. */
+export function userExists(username: string): boolean {
+  const d = getDb();
+  const row = d.prepare("SELECT 1 FROM users WHERE username = ?").get(username);
+  return row != null;
 }
 
 export function listUsers(): { username: string }[] {
