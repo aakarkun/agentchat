@@ -1,0 +1,21 @@
+[Unit]
+Description=AgentChat API (Fastify on Bun)
+After=network.target
+
+[Service]
+Type=simple
+User=agentchat
+Group=agentchat
+WorkingDirectory=/opt/agentchat
+Environment=HOST=127.0.0.1
+Environment=PORT=8787
+Environment=AGENTCHAT_DB_PATH=/opt/agentchat/data/agentchat.sqlite
+ExecStart=/usr/bin/bun run api
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=agentchat-api
+
+[Install]
+WantedBy=multi-user.target
