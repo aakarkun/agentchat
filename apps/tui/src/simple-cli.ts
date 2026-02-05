@@ -366,6 +366,42 @@ async function main() {
 
   type Interactive = { rl: readline.Interface; inboxInterval: ReturnType<typeof setInterval> | null; ttyDestroy?: () => void };
 
+  const VIEWPORT_LINES = TTY ? Math.max(5, (process.stdout.rows ?? 24) - 4) : 15;
+  const VIEWPORT_START_ROW = 3;
+  const messageBuffer: string[] = [];
+
+  function pushToViewport(line: string) {
+    messageBuffer.push(line);
+    if (messageBuffer.length > VIEWPORT_LINES) messageBuffer.splice(0, messageBuffer.length - VIEWPORT_LINES);
+  }
+
+  /** Draw only the top bar (line 1 + separator). Fixed position; call once or to refresh "chat: X". */
+  function drawTopBar() {
+    if (!TTY) return;
+    process.stdout.write("\x1b[1;1H");
+    const chatPart = otherUsername ? "chat: " + c.orange + otherUsername + c.reset : c.dim + "—" + c.reset;
+    const bar =
+      "  " + c.orange + "agentchat" + c.reset + "  " + c.dim + "│" + c.reset + "  you: " + c.amber + me + c.reset + "  " + c.dim + "│" + c.reset + "  " + chatPart;
+    process.stdout.write(bar + "\n");
+    process.stdout.write(c.dim + "─".repeat(60) + c.reset + "\n");
+  }
+
+  /** Redraw only the viewport and input area (below the top bar). Does not clear or touch the top bar. */
+  function drawViewportAndInput() {
+    if (!TTY) return;
+    process.stdout.write("\x1b[" + VIEWPORT_START_ROW + ";1H");
+    process.stdout.write("\x1b[J");
+    const lines = messageBuffer.slice(-VIEWPORT_LINES);
+    for (let i = 0; i < VIEWPORT_LINES - lines.length; i++) process.stdout.write("\n");
+    for (const l of lines) process.stdout.write(l + "\n");
+    process.stdout.write(c.dim + "─".repeat(60) + c.reset + "\n");
+  }
+
+  function out(msg: string, interactive?: Interactive) {
+    if (TTY && interactive) pushToViewport(msg);
+    else print(msg);
+  }
+
   function formatMsg(m: Msg): string {
     const isMe = m.fromUser === me;
     const who = isMe ? c.amber + m.fromUser + c.reset : c.orange + m.fromUser + c.reset;
@@ -383,7 +419,7 @@ async function main() {
       const arg = parts.slice(1).join(" ").trim();
 
       if (cmd === "/quit") {
-        print(c.dim + "bye." + c.reset);
+        if (interactive) out(c.dim + "bye." + c.reset, interactive);
         if (interactive) {
           interactive.ttyDestroy?.();
           interactive.rl.close();
@@ -393,7 +429,7 @@ async function main() {
         return;
       }
       if (cmd === "/whoami") {
-        print(c.dim + "you: " + c.reset + c.amber + me + c.reset);
+        out(c.dim + "you: " + c.reset + c.amber + me + c.reset, interactive);
         return;
       }
       if (cmd === "/new") {
@@ -401,7 +437,7 @@ async function main() {
         otherUsername = null;
         messages = [];
         lastReadId = null;
-        print(c.dim + "new session. " + c.reset + "Use " + c.orange + "/dm <username>" + c.reset + " to start a chat.");
+        out(c.dim + "new session. " + c.reset + "Use " + c.orange + "/dm <username>" + c.reset + " to start a chat.", interactive);
         return;
       }
       if (cmd === "/users") {
@@ -412,10 +448,10 @@ async function main() {
         }
         if (res.ok && res.data && typeof res.data === "object" && "users" in res.data) {
           const users = (res.data as { users: string[] }).users;
-          print(c.dim + "users:" + c.reset);
-          users.forEach((u) => print("  " + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset)));
+          out(c.dim + "users:" + c.reset, interactive);
+          users.forEach((u) => out("  " + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset), interactive));
         } else {
-          print(c.red + "Failed: " + (res.error ?? "") + c.reset);
+          out(c.red + "Failed: " + (res.error ?? "") + c.reset, interactive);
         }
         return;
       }
@@ -428,28 +464,28 @@ async function main() {
         if (res.ok && res.data && typeof res.data === "object" && "inbox" in res.data) {
           const list = (res.data as { inbox: InboxItem[] }).inbox;
           if (list.length === 0) {
-            print(c.dim + "inbox empty. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " to start a chat.");
+            out(c.dim + "inbox empty. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " to start a chat.", interactive);
           } else {
-            print(c.dim + "inbox ─" + c.reset);
+            out(c.dim + "inbox ─" + c.reset, interactive);
             list.forEach((e) => {
               const unread = e.unreadCount > 0 ? c.red + " " + e.unreadCount + " unread" + c.reset : "";
-              print("  " + c.orange + e.otherUsername + c.reset + unread);
-              print(c.dim + "    └ " + (e.lastMessagePreview ?? "").slice(0, 48) + c.reset);
+              out("  " + c.orange + e.otherUsername + c.reset + unread, interactive);
+              out(c.dim + "    └ " + (e.lastMessagePreview ?? "").slice(0, 48) + c.reset, interactive);
             });
           }
         } else {
-          print(c.red + "Failed to fetch inbox." + c.reset);
+          out(c.red + "Failed to fetch inbox." + c.reset, interactive);
         }
         return;
       }
       if (cmd === "/dm") {
         if (!arg) {
-          print(c.dim + "usage: " + c.reset + "/dm <username>");
+          out(c.dim + "usage: " + c.reset + "/dm <username>", interactive);
           return;
         }
         const to = arg.toLowerCase();
         if (to === me) {
-          print(c.red + "Cannot DM yourself." + c.reset);
+          out(c.red + "Cannot DM yourself." + c.reset, interactive);
           return;
         }
         const res = await postDm(to);
@@ -463,28 +499,28 @@ async function main() {
           messages = [];
           lastReadId = null;
           await fetchMessages();
-          print(c.dim + "── " + c.orange + "chat with " + otherUsername + c.reset + c.dim + " ──" + c.reset);
-          messages.forEach((m) => print(formatMsg(m)));
+          out(c.dim + "── " + c.orange + "chat with " + otherUsername + c.reset + c.dim + " ──" + c.reset, interactive);
+          messages.forEach((m) => out(formatMsg(m), interactive));
         } else {
-          print(c.red + "Failed: " + (res.error ?? "Unknown") + c.reset);
+          out(c.red + "Failed: " + (res.error ?? "Unknown") + c.reset, interactive);
         }
         return;
       }
       if (cmd === "/history") {
         if (!conversationId) {
-          print(c.dim + "No conversation. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " first.");
+          out(c.dim + "No conversation. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " first.", interactive);
           return;
         }
         await fetchMessages();
-        messages.forEach((m) => print(formatMsg(m)));
+        messages.forEach((m) => out(formatMsg(m), interactive));
         return;
       }
-      print(c.dim + "commands: " + c.reset + "/users /dm /inbox /history /new /whoami /quit");
+      out(c.dim + "commands: " + c.reset + "/users /dm /inbox /history /new /whoami /quit", interactive);
       return;
     }
 
     if (!conversationId || !otherUsername) {
-      print(c.dim + "Select a conversation first: " + c.reset + c.orange + "/dm <username>" + c.reset);
+      out(c.dim + "Select a conversation first: " + c.reset + c.orange + "/dm <username>" + c.reset, interactive);
       return;
     }
 
@@ -495,9 +531,9 @@ async function main() {
     }
     if (res.ok) {
       await fetchMessages();
-      print(c.green + "sent." + c.reset);
+      out(c.green + "sent." + c.reset, interactive);
     } else {
-      print(c.red + "Send failed: " + (res.error ?? "") + c.reset);
+      out(c.red + "Send failed: " + (res.error ?? "") + c.reset, interactive);
     }
   }
 
@@ -510,10 +546,15 @@ async function main() {
 
   // --- Interactive mode: readline loop (requires readable stdin) ---
   await playLobsterAnimation(2, 100);
-  print("");
-  print(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
-  print(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
-  print("");
+  if (!TTY) {
+    print("");
+    print(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
+    print(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
+    print("");
+  } else {
+    pushToViewport(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
+    pushToViewport(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
+  }
 
   const ttyInteractive = openTTYInputStream();
   const interactiveInput = ttyInteractive
@@ -528,20 +569,30 @@ async function main() {
     const before = lastReadId;
     await fetchMessages();
     const newOnes = before == null ? messages : messages.filter((m) => m.id > before);
-    newOnes.forEach((m) => print(formatMsg(m)));
+    newOnes.forEach((m) => pushToViewport(formatMsg(m)));
   }, API_POLL_MS);
 
   const interactive: Interactive = { rl, inboxInterval, ttyDestroy: ttyInteractive?.destroy };
   const promptStr = c.orange + "$ " + c.reset;
-  const prompt = () =>
+  if (TTY) {
+    process.stdout.write("\x1b[2J\x1b[H");
+    drawTopBar();
+    drawViewportAndInput();
+  }
+  const prompt = () => {
+    if (TTY) {
+      drawTopBar();
+      drawViewportAndInput();
+    }
     rl.question(promptStr, (line) => {
       runLine(line, interactive)
         .then(() => prompt())
         .catch((err) => {
-          print(c.red + "Error: " + (err?.message ?? String(err)) + c.reset);
+          out(c.red + "Error: " + (err?.message ?? String(err)) + c.reset, interactive);
           prompt();
         });
     });
+  };
   prompt();
 }
 
