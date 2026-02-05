@@ -1,0 +1,551 @@
+#!/usr/bin/env bun
+/**
+ * Normal CLI chat — readline only, no TUI. Works over SSH when stdin is readable.
+ * When stdin cannot be read (EPERM): use --exec for one-shot commands, no prompt.
+ *
+ * Interactive:  bun run cli -- --user <name>   (set AGENTCHAT_PASSWORD or type password)
+ * Register:     bun run cli -- --user <name> --register   (creates account, then logs in)
+ * One-shot:     AGENTCHAT_PASSWORD=xxx bun run cli -- --user lexa --exec "/inbox"
+ *               AGENTCHAT_PASSWORD=xxx bun run cli -- --user lexa --exec "/dm bob" --send "hello"
+ */
+
+import * as fs from "node:fs";
+import * as readline from "node:readline";
+import {
+  login,
+  register,
+  setToken,
+  setUser,
+  getUser,
+  getUsers,
+  postDm,
+  getInbox,
+  getMessages,
+  postMessage,
+  postRead,
+} from "./api.js";
+
+const API_POLL_MS = 2000;
+
+interface InboxItem {
+  conversationId: string;
+  otherUsername: string;
+  lastMessageAt: number;
+  lastMessagePreview: string | null;
+  unreadCount: number;
+}
+
+interface Msg {
+  id: number;
+  fromUser: string;
+  toUser: string;
+  body: string;
+  createdAt: number;
+}
+
+function detectUsername(): string {
+  const argv = process.argv.slice(2);
+  const i = argv.indexOf("--user");
+  if (i !== -1 && argv[i + 1]) return argv[i + 1].trim();
+  return (process.env.AGENT_USERNAME ?? process.env.AGENTCHAT_USERNAME ?? process.env.USER ?? process.env.LOGNAME ?? "").trim();
+}
+
+function getPassword(): string {
+  return (process.env.AGENT_PASSWORD ?? process.env.AGENTCHAT_PASSWORD ?? "").trim();
+}
+
+function getExecCommand(): string | null {
+  const argv = process.argv.slice(2);
+  const i = argv.indexOf("--exec");
+  if (i !== -1 && argv[i + 1]) return argv[i + 1].trim();
+  const j = argv.indexOf("-e");
+  if (j !== -1 && argv[j + 1]) return argv[j + 1].trim();
+  return null;
+}
+
+function getSendMessage(): string | null {
+  const argv = process.argv.slice(2);
+  const i = argv.indexOf("--send");
+  if (i !== -1 && argv[i + 1]) return argv[i + 1].trim();
+  return null;
+}
+
+function getRegisterFlag(): boolean {
+  const argv = process.argv.slice(2);
+  return argv.includes("--register") || argv.includes("-r");
+}
+
+const TTY = process.stdout.isTTY;
+const c = {
+  reset: TTY ? "\x1b[0m" : "",
+  dim: TTY ? "\x1b[2m" : "",
+  orange: TTY ? "\x1b[38;5;208m" : "",
+  amber: TTY ? "\x1b[33m" : "",
+  red: TTY ? "\x1b[91m" : "",
+  green: TTY ? "\x1b[92m" : "",
+  cyan: TTY ? "\x1b[96m" : "",
+};
+
+function print(msg: string) {
+  process.stdout.write(msg + "\n");
+}
+
+/**
+ * Use the controlling terminal (/dev/tty) for input when we're in a TTY.
+ * This bypasses stdin (fd 0), which can get EPERM in nested/SSH setups (e.g. Cursor terminal over SSH).
+ * Same idea as getpass(3) and many CLIs that work over SSH.
+ */
+function openTTYInputStream(): { input: NodeJS.ReadStream; destroy?: () => void } | null {
+  if (!process.stdout.isTTY || process.platform === "win32") return null;
+  try {
+    const tty = fs.createReadStream("/dev/tty") as NodeJS.ReadStream;
+    return {
+      input: tty,
+      destroy: () => {
+        tty.destroy();
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Stdin wrapper that catches EPERM on read so we can show a message and exit instead of crashing. */
+function createSafeStdin(onEperm: () => void): NodeJS.ReadStream {
+  const raw = process.stdin;
+  const safe = Object.create(raw, {
+    read: {
+      value(this: NodeJS.ReadStream, size?: number) {
+        try {
+          return (raw as NodeJS.ReadStream).read(size);
+        } catch (err: unknown) {
+          const e = err as NodeJS.ErrnoException;
+          if (e?.code === "EPERM" || e?.errno === -1) {
+            onEperm();
+            return null;
+          }
+          throw err;
+        }
+      },
+    },
+  }) as NodeJS.ReadStream;
+  raw.on("error", (err: NodeJS.ErrnoException) => {
+    if (err?.code === "EPERM" || err?.errno === -1) onEperm();
+  });
+  return safe;
+}
+
+/** Big lobster ASCII art frames (claws wiggle). Same line count per frame. */
+const O = "\x1b[38;5;208m";
+const R = "\x1b[0m";
+const LOBSTER_FRAMES = [
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">       <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">  )   (  <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">         <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">  (   )  <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">         <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+  [
+    "       " + O + "_____" + R,
+    "     " + O + "/     \\" + R,
+    "    " + O + "| o o |" + R,
+    "    " + O + "|  _  |" + R,
+    "   " + O + "/|     |\\" + R,
+    "  " + O + ">  )   (  <" + R,
+    " " + O + "/  \\___/  \\" + R,
+    " " + O + "|_________|" + R,
+    O + "  /           \\" + R,
+    O + " /_____________\\" + R,
+  ],
+];
+
+const LOBSTER_HEIGHT = LOBSTER_FRAMES[0].length;
+
+function writeFrame(frame: string[]) {
+  for (const line of frame) {
+    process.stdout.write(line + "\n");
+  }
+}
+
+function cursorUp(n: number) {
+  if (TTY && n > 0) process.stdout.write("\x1b[" + n + "A");
+}
+
+async function playLobsterAnimation(cycles = 2, frameMs = 120): Promise<void> {
+  if (!TTY) return;
+  const hide = "\x1b[?25l";
+  const show = "\x1b[?25h";
+  process.stdout.write(hide);
+  try {
+    for (let c = 0; c < cycles; c++) {
+      for (const frame of LOBSTER_FRAMES) {
+        writeFrame(frame);
+        await new Promise((r) => setTimeout(r, frameMs));
+        if (c < cycles - 1 || frame !== LOBSTER_FRAMES[LOBSTER_FRAMES.length - 1]) {
+          cursorUp(LOBSTER_HEIGHT);
+        }
+      }
+    }
+  } finally {
+    process.stdout.write(show);
+  }
+}
+
+async function doLogin(username: string, password: string): Promise<boolean> {
+  const res = await login(username.toLowerCase(), password);
+  if (!res.ok || !res.data || typeof res.data !== "object" || !("token" in res.data)) {
+    print(c.red + "Login failed: " + (res.error ?? "unknown") + c.reset);
+    return false;
+  }
+  const d = res.data as { token: string; username: string };
+  setToken(d.token);
+  setUser(d.username);
+  return true;
+}
+
+async function main() {
+  const username = detectUsername();
+  const execCmd = getExecCommand();
+  const sendMsg = getSendMessage();
+  let password = getPassword();
+
+  if (!username) {
+    print(c.red + "Pass --user <name> or set AGENTCHAT_USERNAME" + c.reset);
+    process.exit(1);
+  }
+
+  if (!password) {
+    if (!process.stdout.isTTY || execCmd) {
+      print(c.dim + "Set AGENTCHAT_PASSWORD (required when not in an interactive terminal or when using --exec)." + c.reset);
+      process.exit(1);
+    }
+    const ttyInput = openTTYInputStream();
+    const inputSource = ttyInput
+      ? ttyInput.input
+      : createSafeStdin(() => {
+          print(c.dim + "Stdin read not permitted. Set AGENTCHAT_PASSWORD and run again." + c.reset);
+          process.exit(1);
+        });
+    const rl = readline.createInterface({ input: inputSource, output: process.stdout });
+    password = await new Promise<string>((resolve, reject) => {
+      let settled = false;
+      const done = (value: string) => {
+        if (settled) return;
+        settled = true;
+        rl.close();
+        ttyInput?.destroy?.();
+        resolve(value);
+      };
+      const fail = (err: NodeJS.ErrnoException) => {
+        if (settled) return;
+        settled = true;
+        rl.close();
+        ttyInput?.destroy?.();
+        reject(err);
+      };
+      if (!ttyInput) {
+        const rawStdin = process.stdin;
+        let stdinError: NodeJS.ErrnoException | null = null;
+        (rawStdin as NodeJS.ReadStream).on("error", (err: NodeJS.ErrnoException) => {
+          if (err?.code === "EPERM" || err?.errno === -1) stdinError = err;
+        });
+        const check = () => {
+          if (!settled && stdinError) fail(stdinError);
+        };
+        rawStdin.once("error", check);
+        process.nextTick(check);
+        setTimeout(check, 100);
+      }
+      rl.question(c.orange + "password: " + c.reset, (answer) => {
+        done(answer.trim());
+      });
+    }).catch((err: NodeJS.ErrnoException) => {
+      if (err?.code === "EPERM" || err?.errno === -1) {
+        print(c.dim + "Stdin read not permitted. Set AGENTCHAT_PASSWORD and run again." + c.reset);
+        process.exit(1);
+      }
+      throw err;
+    });
+  }
+
+  const doRegister = getRegisterFlag();
+  if (doRegister) {
+    const res = await register(username.toLowerCase(), password);
+    if (!res.ok || !res.data || typeof res.data !== "object" || !("token" in res.data)) {
+      print(c.red + "Register failed: " + (res.error ?? "username may already be taken") + c.reset);
+      process.exit(1);
+    }
+    const d = res.data as { token: string; username: string };
+    setToken(d.token);
+    setUser(d.username);
+    print(c.green + "Registered and logged in as " + d.username + c.reset);
+  } else {
+    const ok = await doLogin(username, password);
+    if (!ok) process.exit(1);
+  }
+
+  const me = getUser() ?? username;
+
+  let conversationId: string | null = null;
+  let otherUsername: string | null = null;
+  let lastReadId: number | null = null;
+  let messages: Msg[] = [];
+  let inboxInterval: ReturnType<typeof setInterval> | null = null;
+
+  const fetchMessages = async () => {
+    if (!conversationId) return;
+    const res = await getMessages(conversationId, undefined, 50);
+    if (res.status === 401) {
+      print("Session expired.");
+      process.exit(1);
+    }
+    if (res.ok && res.data && typeof res.data === "object" && "messages" in res.data) {
+      const list = (res.data as { messages: Msg[] }).messages;
+      messages = list.reverse();
+      const maxId = list.length ? Math.max(...list.map((m) => m.id)) : 0;
+      if (maxId > 0) {
+        lastReadId = maxId;
+        await postRead(conversationId, maxId);
+      }
+    }
+  };
+
+  type Interactive = { rl: readline.Interface; inboxInterval: ReturnType<typeof setInterval> | null; ttyDestroy?: () => void };
+
+  function formatMsg(m: Msg): string {
+    const isMe = m.fromUser === me;
+    const who = isMe ? c.amber + m.fromUser + c.reset : c.orange + m.fromUser + c.reset;
+    return who + c.dim + " │ " + c.reset + m.body;
+  }
+
+  /** Run one line of input; returns when done. Does not call prompt(). */
+  async function runLine(line: string, interactive?: Interactive): Promise<void> {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+
+    if (trimmed.startsWith("/")) {
+      const parts = trimmed.split(/\s+/);
+      const cmd = parts[0].toLowerCase();
+      const arg = parts.slice(1).join(" ").trim();
+
+      if (cmd === "/quit") {
+        print(c.dim + "bye." + c.reset);
+        if (interactive) {
+          interactive.ttyDestroy?.();
+          interactive.rl.close();
+          if (interactive.inboxInterval) clearInterval(interactive.inboxInterval);
+          process.exit(0);
+        }
+        return;
+      }
+      if (cmd === "/whoami") {
+        print(c.dim + "you: " + c.reset + c.amber + me + c.reset);
+        return;
+      }
+      if (cmd === "/new") {
+        conversationId = null;
+        otherUsername = null;
+        messages = [];
+        lastReadId = null;
+        print(c.dim + "new session. " + c.reset + "Use " + c.orange + "/dm <username>" + c.reset + " to start a chat.");
+        return;
+      }
+      if (cmd === "/users") {
+        const res = await getUsers();
+        if (res.status === 401) {
+          print(c.red + "Session expired." + c.reset);
+          process.exit(1);
+        }
+        if (res.ok && res.data && typeof res.data === "object" && "users" in res.data) {
+          const users = (res.data as { users: string[] }).users;
+          print(c.dim + "users:" + c.reset);
+          users.forEach((u) => print("  " + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset)));
+        } else {
+          print(c.red + "Failed: " + (res.error ?? "") + c.reset);
+        }
+        return;
+      }
+      if (cmd === "/inbox") {
+        const res = await getInbox();
+        if (res.status === 401) {
+          print(c.red + "Session expired." + c.reset);
+          process.exit(1);
+        }
+        if (res.ok && res.data && typeof res.data === "object" && "inbox" in res.data) {
+          const list = (res.data as { inbox: InboxItem[] }).inbox;
+          if (list.length === 0) {
+            print(c.dim + "inbox empty. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " to start a chat.");
+          } else {
+            print(c.dim + "inbox ─" + c.reset);
+            list.forEach((e) => {
+              const unread = e.unreadCount > 0 ? c.red + " " + e.unreadCount + " unread" + c.reset : "";
+              print("  " + c.orange + e.otherUsername + c.reset + unread);
+              print(c.dim + "    └ " + (e.lastMessagePreview ?? "").slice(0, 48) + c.reset);
+            });
+          }
+        } else {
+          print(c.red + "Failed to fetch inbox." + c.reset);
+        }
+        return;
+      }
+      if (cmd === "/dm") {
+        if (!arg) {
+          print(c.dim + "usage: " + c.reset + "/dm <username>");
+          return;
+        }
+        const to = arg.toLowerCase();
+        if (to === me) {
+          print(c.red + "Cannot DM yourself." + c.reset);
+          return;
+        }
+        const res = await postDm(to);
+        if (res.status === 401) {
+          print(c.red + "Session expired." + c.reset);
+          process.exit(1);
+        }
+        if (res.ok && res.data && typeof res.data === "object" && "conversationId" in res.data) {
+          conversationId = (res.data as { conversationId: string }).conversationId;
+          otherUsername = (res.data as { with: string }).with;
+          messages = [];
+          lastReadId = null;
+          await fetchMessages();
+          print(c.dim + "── " + c.orange + "chat with " + otherUsername + c.reset + c.dim + " ──" + c.reset);
+          messages.forEach((m) => print(formatMsg(m)));
+        } else {
+          print(c.red + "Failed: " + (res.error ?? "Unknown") + c.reset);
+        }
+        return;
+      }
+      if (cmd === "/history") {
+        if (!conversationId) {
+          print(c.dim + "No conversation. " + c.reset + "Use " + c.orange + "/dm <user>" + c.reset + " first.");
+          return;
+        }
+        await fetchMessages();
+        messages.forEach((m) => print(formatMsg(m)));
+        return;
+      }
+      print(c.dim + "commands: " + c.reset + "/users /dm /inbox /history /new /whoami /quit");
+      return;
+    }
+
+    if (!conversationId || !otherUsername) {
+      print(c.dim + "Select a conversation first: " + c.reset + c.orange + "/dm <username>" + c.reset);
+      return;
+    }
+
+    const res = await postMessage(conversationId, otherUsername, trimmed);
+    if (res.status === 401) {
+      print(c.red + "Session expired." + c.reset);
+      process.exit(1);
+    }
+    if (res.ok) {
+      await fetchMessages();
+      print(c.green + "sent." + c.reset);
+    } else {
+      print(c.red + "Send failed: " + (res.error ?? "") + c.reset);
+    }
+  }
+
+  // --- Exec mode: run one command (and optional --send) then exit. No stdin read. ---
+  if (execCmd) {
+    await runLine(execCmd);
+    if (sendMsg) await runLine(sendMsg);
+    process.exit(0);
+  }
+
+  // --- Interactive mode: readline loop (requires readable stdin) ---
+  await playLobsterAnimation(2, 100);
+  print("");
+  print(c.orange + "  agentchat" + c.reset + c.dim + " — " + c.reset + c.amber + me + c.reset);
+  print(c.dim + "  /dm <user>  /inbox  /users  /history  /new  /whoami  /quit" + c.reset);
+  print("");
+
+  const ttyInteractive = openTTYInputStream();
+  const interactiveInput = ttyInteractive
+    ? ttyInteractive.input
+    : createSafeStdin(() => {
+        print(c.dim + "Stdin read not permitted. Use --exec for one-shot: bun run cli -- --user " + me + " --exec \"/inbox\"" + c.reset);
+        process.exit(1);
+      });
+  const rl = readline.createInterface({ input: interactiveInput, output: process.stdout });
+  inboxInterval = setInterval(async () => {
+    if (!conversationId) return;
+    const before = lastReadId;
+    await fetchMessages();
+    const newOnes = before == null ? messages : messages.filter((m) => m.id > before);
+    newOnes.forEach((m) => print(formatMsg(m)));
+  }, API_POLL_MS);
+
+  const interactive: Interactive = { rl, inboxInterval, ttyDestroy: ttyInteractive?.destroy };
+  const promptStr = c.orange + "$ " + c.reset;
+  const prompt = () =>
+    rl.question(promptStr, (line) => {
+      runLine(line, interactive)
+        .then(() => prompt())
+        .catch((err) => {
+          print(c.red + "Error: " + (err?.message ?? String(err)) + c.reset);
+          prompt();
+        });
+    });
+  prompt();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
