@@ -1,0 +1,12 @@
+{
+  "name": "@agentchat/api",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@agentchat/core": "workspace:*",
+    "fastify": "^5.1.0"
+  }
+}
