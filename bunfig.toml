@@ -1,0 +1,8 @@
+[install]
+# Bun workspaces
+
+[run]
+# Use workspace scripts
+
+[test]
+# No tests in MVP

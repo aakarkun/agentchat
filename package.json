@@ -1,0 +1,12 @@
+{
+  "name": "agentchat",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "api": "bun apps/api/src/index.ts",
+    "tui": "bun apps/tui/src/index.tsx",
+    "tui:simple": "bun apps/tui/src/index.tsx --simple",
+    "tui:line": "bun apps/tui/src/index.tsx --line-input",
+    "cli": "bun apps/tui/src/simple-cli.ts"
+  }
+}
