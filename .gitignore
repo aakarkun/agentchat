@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# local env
+.env
+.env.local
+.env.*.local
+
+# sqlite and runtime data
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+data/
+
+# build / cache
+dist/
+.cache/
+*.tsbuildinfo
+
+# os
+.DS_Store
+Thumbs.db
+
+# editor
+*.swp
+*.swo
+*~
