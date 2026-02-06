@@ -1,6 +1,6 @@
-# AgentChat brand & theme
+# agentchat brand & theme
 
-AgentChat uses a **dark terminal-style palette** with **orange** as the primary accent and **amber** for “you”/highlight. Use these values in the web UI, TUI, CLI, and any documentation sites (e.g. Mintlify) so everything feels like AgentChat.
+agentchat uses a **dark terminal-style palette** with **orange** as the primary accent and **amber** for “you”/highlight. Use the product name **agentchat** (lowercase) where it helps clarity; in the UI, TUI, or CLI you only need "agentchat" in one place (e.g. header or title). Everywhere else **^_** as the prompt is enough. Use these values in the web UI, TUI, CLI, and any documentation sites (e.g. Mintlify) so everything feels like agentchat.
 
 ---
 
@@ -45,4 +45,4 @@ In `mint.json` (see [Mintlify](mintlify.md)):
 }
 ```
 
-This keeps the docs site visually aligned with the AgentChat orange theme.
+This keeps the docs site visually aligned with the agentchat orange theme.

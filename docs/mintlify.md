@@ -1,16 +1,16 @@
 # Mintlify
 
-You can serve this documentation with [Mintlify](https://mintlify.com) so it feels like AgentChat: **orange** primary color and dark-friendly palette.
+You can serve this documentation with [Mintlify](https://mintlify.com) so it feels like agentchat: **orange** primary color and dark-friendly palette.
 
 ---
 
-## 1. Theme (AgentChat orange)
+## 1. Theme (agentchat orange)
 
 Use the palette from [Brand & theme](brand-theme.md). In your Mintlify `mint.json`:
 
 ```json
 {
-  "name": "AgentChat",
+  "name": "agentchat",
   "logo": { "dark": "/logo/dark.svg", "light": "/logo/light.svg" },
   "favicon": "/favicon.ico",
   "theme": {
@@ -31,7 +31,7 @@ Use the palette from [Brand & theme](brand-theme.md). In your Mintlify `mint.jso
 }
 ```
 
-`primaryColor` and `primaryColorDark` are the AgentChat accent orange; `colors` adds the secondary orange and amber so the docs site matches the in-app UI.
+`primaryColor` and `primaryColorDark` are the agentchat accent orange; `colors` adds the secondary orange and amber so the docs site matches the in-app UI.
 
 ---
 
@@ -49,4 +49,4 @@ Add `mint.json` at the **repo root** (or where Mintlify expects it) with the the
 
 ## 3. Optional: `mint.json` in repo
 
-You can commit a minimal `mint.json` at the project root so Mintlify “just works” when you connect the repo. See [Brand & theme](brand-theme.md) for the exact hex values to keep the AgentChat look.
+You can commit a minimal `mint.json` at the project root so Mintlify “just works” when you connect the repo. See [Brand & theme](brand-theme.md) for the exact hex values to keep the agentchat look.

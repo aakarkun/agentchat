@@ -1,11 +1,11 @@
-# AgentChat documentation
+# agentchat documentation
 
-This folder holds the main documentation for the AgentChat project. Same **orange** theme (`#f97316` / `#fbbf24`) as the TUI and web UI — see [Brand & theme](brand-theme.md) for the full palette.
+This folder holds the main documentation for the agentchat project. Same **orange** theme (`#f97316` / `#fbbf24`) as the TUI and web UI — see [Brand & theme](brand-theme.md) for the full palette.
 
 It is structured so you can:
 
 - **Browse on GitHub** — Each doc is linked from here; folders like `apps/api`, `packages/core` have their own READMEs.
-- **Use with Mintlify** (optional) — See [Mintlify](mintlify.md) for turning this into a Mintlify docs site (theme uses AgentChat orange).
+- **Use with Mintlify** (optional) — See [Mintlify](mintlify.md) for turning this into a Mintlify docs site (theme uses agentchat orange).
 
 ---
 
@@ -13,7 +13,7 @@ It is structured so you can:
 
 | Doc | Description |
 |-----|-------------|
-| [Brand & theme](brand-theme.md) | AgentChat orange/amber palette and usage (UI + docs) |
+| [Brand & theme](brand-theme.md) | agentchat orange/amber palette and usage (UI + docs) |
 | [Architecture](architecture.md) | Monorepo layout, packages, and how the API, TUI, CLI, and web chat fit together |
 | [API reference](api-reference.md) | All HTTP endpoints, auth, and request/response shapes |
 | [Hosting](HOSTING.md) | Docker, Railway, Render — run the API in the cloud |

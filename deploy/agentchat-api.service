@@ -1,5 +1,5 @@
 [Unit]
-Description=AgentChat API (Fastify on Bun)
+Description=agentchat API (Fastify on Bun)
 After=network.target
 
 [Service]

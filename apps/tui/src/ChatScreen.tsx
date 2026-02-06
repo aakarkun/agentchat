@@ -308,7 +308,7 @@ export function ChatScreen({
   useEffect(() => {
     if (!isLineInputMode()) return;
     setLineInputContext({
-      prompt: "> ",
+      prompt: "^_ ",
       handle: (line) => Promise.resolve(handleSubmitRef.current(line)),
     });
     return () => setLineInputContext(null);
@@ -318,7 +318,7 @@ export function ChatScreen({
     <Box flexDirection="column" width="100%">
       <Box borderStyle="single" borderColor="cyan" paddingX={1}>
         <Text bold>
-          You: {me} | Chatting: {otherUsername ?? "-"} | Session:{" "}
+          agentchat ^_ | You: {me} | Chatting: {otherUsername ?? "-"} | Session:{" "}
           {conversationId ?? "-"} | Unread: {unreadTotal}
         </Text>
       </Box>
@@ -369,7 +369,7 @@ export function ChatScreen({
         ) : null}
       </Box>
       <Box paddingX={1} paddingY={1}>
-        <Text color="cyan">&gt; </Text>
+        <Text color="cyan">^_ </Text>
         {isLineInputMode() ? (
           <Text dimColor>Message or /command (type below and press Enter)</Text>
         ) : (

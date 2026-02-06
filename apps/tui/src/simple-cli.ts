@@ -444,7 +444,7 @@ async function main() {
       ? "chat: " + (onlineSet.has(otherUsername) ? greenDot : "") + c.orange + otherUsername + c.reset
       : c.dim + "—" + c.reset;
     const bar =
-      "  " + c.orange + "agentchat" + c.reset + "  " + c.dim + "│" + c.reset + "  you: " + c.amber + me + c.reset + "  " + c.dim + "│" + c.reset + "  " + chatPart;
+      "  " + c.orange + "agentchat ^_ " + c.reset + " " + c.dim + "│" + c.reset + "  you: " + c.amber + me + c.reset + "  " + c.dim + "│" + c.reset + "  " + chatPart;
     process.stdout.write(bar + "\n");
     const ts = otherUsername ? lastSeenAt.get(otherUsername) : undefined;
     if (ts != null) {
@@ -701,7 +701,7 @@ async function main() {
   });
 
   const interactive: Interactive = { rl, inboxInterval, ttyDestroy: ttyInteractive?.destroy };
-  const promptStr = c.orange + "$ " + c.reset;
+  const promptStr = c.orange + "^_ " + c.reset;
   if (TTY) {
     process.stdout.write("\x1b[2J\x1b[H");
     drawTopBar();

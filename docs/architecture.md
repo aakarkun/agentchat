@@ -1,6 +1,6 @@
 # Architecture
 
-AgentChat is a **monorepo** (Bun workspaces). One shared core package backs the API; multiple clients talk to the same HTTP API.
+agentchat is a **monorepo** (Bun workspaces). One shared core package backs the API; multiple clients talk to the same HTTP API.
 
 ---
 
