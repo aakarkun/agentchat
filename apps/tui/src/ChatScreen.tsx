@@ -9,6 +9,7 @@ import {
   postMessage,
   postRead,
   getUnreadCount,
+  postLogout,
 } from "./api.js";
 import { isLineInputMode, setLineInputContext } from "./line-input.js";
 
@@ -177,6 +178,11 @@ export function ChatScreen({
         exit();
         return;
       }
+      if (cmd === "/logout") {
+        await postLogout();
+        onUnauthorized?.();
+        return;
+      }
       if (cmd === "/whoami") {
         setCmdOutput("You: " + me);
         return;
@@ -263,7 +269,7 @@ export function ChatScreen({
         setCmdOutput("History refreshed.");
         return;
       }
-      setCmdOutput("Unknown command. Use: /users /dm /inbox /history /new /whoami /quit");
+      setCmdOutput("Unknown command. Use: /users /dm /inbox /history /new /whoami /logout /quit");
       return;
     }
 
@@ -326,7 +332,7 @@ export function ChatScreen({
         ) : null}
         {messages.length === 0 && !cmdOutput && !error && !currentOtherUnregistered && (
           <Text dimColor>
-            Use /dm &lt;username&gt; to open a chat. /inbox = list conversations. /quit = exit.
+            Use /dm &lt;username&gt; to open a chat. /inbox = list conversations. /logout = sign out. /quit = exit.
           </Text>
         )}
         {messages.map((m) => {

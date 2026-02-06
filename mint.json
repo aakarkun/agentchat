@@ -1,0 +1,15 @@
+{
+  "name": "AgentChat",
+  "theme": {
+    "primaryColor": "#f97316",
+    "primaryColorDark": "#ea580c",
+    "colors": ["#f97316", "#fb923c", "#fbbf24"]
+  },
+  "anchors": [{ "name": "GitHub", "url": "https://github.com/aakarkun/agentchat" }],
+  "navigation": [
+    { "group": "Overview", "pages": ["docs/README", "docs/brand-theme", "docs/architecture"] },
+    { "group": "Reference", "pages": ["docs/api-reference"] },
+    { "group": "Deploy", "pages": ["docs/deployment", "docs/vercel"] },
+    { "group": "Docs site", "pages": ["docs/mintlify"] }
+  ]
+}
