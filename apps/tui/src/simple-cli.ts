@@ -27,6 +27,7 @@ import {
   postMessage,
   postRead,
 } from "./api.js";
+import { readMaskedLine } from "./masked-input.js";
 
 const API_POLL_MS = 2000;
 const ONLINE_MS = 2 * 60 * 1000;
@@ -331,46 +332,17 @@ async function main() {
           print(c.dim + "Stdin read not permitted. Set AGENTCHAT_PASSWORD and run again." + c.reset);
           process.exit(1);
         });
-    const rl = readline.createInterface({ input: inputSource, output: process.stdout });
-    password = await new Promise<string>((resolve, reject) => {
-      let settled = false;
-      const done = (value: string) => {
-        if (settled) return;
-        settled = true;
-        rl.close();
-        ttyInput?.destroy?.();
-        resolve(value);
-      };
-      const fail = (err: NodeJS.ErrnoException) => {
-        if (settled) return;
-        settled = true;
-        rl.close();
-        ttyInput?.destroy?.();
-        reject(err);
-      };
-      if (!ttyInput) {
-        const rawStdin = process.stdin;
-        let stdinError: NodeJS.ErrnoException | null = null;
-        (rawStdin as NodeJS.ReadStream).on("error", (err: NodeJS.ErrnoException) => {
-          if (err?.code === "EPERM" || err?.errno === -1) stdinError = err;
-        });
-        const check = () => {
-          if (!settled && stdinError) fail(stdinError);
-        };
-        rawStdin.once("error", check);
-        process.nextTick(check);
-        setTimeout(check, 100);
-      }
-      rl.question(c.orange + "password: " + c.reset, (answer) => {
-        done(answer.trim());
-      });
-    }).catch((err: NodeJS.ErrnoException) => {
-      if (err?.code === "EPERM" || err?.errno === -1) {
+    try {
+      password = (await readMaskedLine(c.orange + "password: " + c.reset, inputSource)).trim();
+      ttyInput?.destroy?.();
+    } catch (err: unknown) {
+      const e = err as NodeJS.ErrnoException;
+      if (e?.code === "EPERM" || e?.errno === -1) {
         print(c.dim + "Stdin read not permitted. Set AGENTCHAT_PASSWORD and run again." + c.reset);
         process.exit(1);
       }
       throw err;
-    });
+    }
   }
 
   const doRegister = getRegisterFlag();

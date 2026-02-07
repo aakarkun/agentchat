@@ -45,6 +45,7 @@ export function LoginScreen({
       setLineInputContext({
         prompt: "Password: ",
         handle: (p) => submitPass(p),
+        mask: true,
       });
     }
     return () => setLineInputContext(null);

@@ -4,10 +4,13 @@
  */
 
 import * as readline from "node:readline";
+import { readMaskedLine } from "./masked-input.js";
 
 export type LineInputContext = {
   prompt: string;
   handle: (line: string) => void | Promise<void>;
+  /** When true, input is masked (e.g. for password). */
+  mask?: boolean;
 };
 
 let currentContext: LineInputContext | null = null;
@@ -76,16 +79,24 @@ function getReadline(): readline.Interface | null {
 function runLoop(): void {
   const ctx = currentContext;
   if (!ctx) return;
+  if (ctx.mask) {
+    readMaskedLine(ctx.prompt).then(
+      (line) => {
+        Promise.resolve(ctx.handle(line)).then(
+          () => runLoop(),
+          () => runLoop()
+        );
+      },
+      () => runLoop()
+    );
+    return;
+  }
   const interface_ = getReadline();
   if (!interface_) return;
   interface_.question(ctx.prompt, (line) => {
     Promise.resolve(ctx.handle(line.trim())).then(
-      () => {
-        runLoop();
-      },
-      () => {
-        runLoop();
-      }
+      () => runLoop(),
+      () => runLoop()
     );
   });
 }
