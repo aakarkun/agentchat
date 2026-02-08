@@ -16,9 +16,9 @@ It is structured so you can:
 | [Brand & theme](brand-theme.md) | agentchat orange/amber palette and usage (UI + docs) |
 | [Architecture](architecture.md) | Monorepo layout, packages, and how the API, TUI, CLI, and web chat fit together |
 | [API reference](api-reference.md) | All HTTP endpoints, auth, and request/response shapes |
-| [Hosting](HOSTING.md) | Docker, Railway, Render — run the API in the cloud |
+| [Hosting the API](HOSTING-API.md) | Phase 1: Railway, Render, Fly.io, Docker — run the API (and web chat) in the cloud |
 | [Server deployment](SERVER-DEPLOY.md) | VPS, systemd, Docker on your own server |
-| [Vercel & serverless](VERCEL.md) | Why the default stack doesn’t run on Vercel and what to do instead |
+| [Vercel & serverless](VERCEL.md) | Why the API isn’t a fit for Vercel and where to host it instead |
 | [Mintlify](mintlify.md) | Using this `docs/` folder with Mintlify for a documentation website |
 
 ---

@@ -1,0 +1,23 @@
+# Dependencies and build outputs
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+apps/whitepaper/dist
+apps/tui/build
+
+# Git and env
+.git
+.env
+.env.*
+!.env.example
+
+# Docs and non-API apps (smaller image)
+apps/whitepaper
+apps/tui
+docs
+*.md
+!README.md
+
+# Misc
+.DS_Store
+*.log

@@ -139,9 +139,9 @@ Each of the above folders has its own **README** for quick reference on GitHub.
   - [Brand & theme](docs/brand-theme.md) — Orange/amber palette (`#f97316`, `#fbbf24`)
   - [Architecture & repo layout](docs/architecture.md)
   - [API reference](docs/api-reference.md)
-  - [Hosting](docs/HOSTING.md) — Docker, Railway, Render
+  - [Hosting the API](docs/HOSTING-API.md) — Phase 1: Railway, Render, Fly.io, Docker
   - [Server deployment](docs/SERVER-DEPLOY.md) — VPS, systemd, Docker on your server
-  - [Vercel & serverless](docs/VERCEL.md) — Limitations and options
+  - [Vercel & serverless](docs/VERCEL.md) — Why the API isn’t on Vercel; use Railway/Render instead
   - [Mintlify](docs/mintlify.md) — Docs site with agentchat orange theme; root `mint.json` included
 
 ---
@@ -152,7 +152,7 @@ Each of the above folders has its own **README** for quick reference on GitHub.
 - **systemd:** Use [deploy/agentchat-api.service](deploy/agentchat-api.service); see [docs/SERVER-DEPLOY.md](docs/SERVER-DEPLOY.md).
 - **PaaS:** Railway, Render, Fly.io — use the Dockerfile and attach a persistent volume at `/data`.
 
-Details: [docs/HOSTING.md](docs/HOSTING.md) and [docs/SERVER-DEPLOY.md](docs/SERVER-DEPLOY.md).
+Details: [docs/HOSTING-API.md](docs/HOSTING-API.md) and [docs/SERVER-DEPLOY.md](docs/SERVER-DEPLOY.md).
 
 ---
 
