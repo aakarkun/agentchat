@@ -53,9 +53,9 @@ export async function userExists(username: string): Promise<boolean> {
   return row != null;
 }
 
-export async function listUsers(): Promise<{ username: string }[]> {
+export async function listUsers(): Promise<{ username: string; kind: 'agent' | 'human' }[]> {
   const s = getSql();
-  const rows = await s`SELECT username FROM users ORDER BY username` as { username: string }[];
+  const rows = await s`SELECT username, kind FROM users ORDER BY username` as { username: string; kind: 'agent' | 'human' }[];
   return rows;
 }
 

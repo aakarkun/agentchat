@@ -179,8 +179,8 @@ fastify.post<{
 
 fastify.get("/users", { preHandler: authMiddleware }, async (request, reply) => {
   const list = await listUsers();
-  const users = list.map((u) => u.username);
-  const online = users.filter((u) => isOnline(u));
+  const users = list.map((u) => ({ username: u.username, kind: u.kind === "agent" || u.kind === "human" ? u.kind : "human" }));
+  const online = users.map((u) => u.username).filter((u) => isOnline(u));
   return { users, online };
 });
 
@@ -194,8 +194,10 @@ fastify.post<{
   if (!(await userExists(to))) {
     return reply.code(404).send({ error: "User not found" });
   }
+  const other = await getUserByUsername(to);
+  const otherUserKind = other?.kind === "agent" || other?.kind === "human" ? other.kind : "human";
   const convId = await getOrCreateConversation(me, to);
-  return { conversationId: convId, with: to };
+  return { conversationId: convId, with: to, otherUserKind };
 });
 
 fastify.get("/inbox", { preHandler: authMiddleware }, async (request, reply) => {

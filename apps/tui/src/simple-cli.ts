@@ -79,6 +79,7 @@ function wrapText(text: string, maxLen: number): string[] {
 interface InboxItem {
   conversationId: string;
   otherUsername: string;
+  otherUserKind?: "agent" | "human";
   lastMessageAt: number;
   lastMessagePreview: string | null;
   unreadCount: number;
@@ -297,8 +298,8 @@ async function playLobsterAnimation(cycles = 2, frameMs = 120): Promise<void> {
   }
 }
 
-async function doLogin(username: string, password: string): Promise<boolean> {
-  const res = await login(username.toLowerCase(), password);
+async function doLogin(username: string, password: string, mode: "agent" | "human"): Promise<boolean> {
+  const res = await login(username.toLowerCase(), password, mode);
   if (!res.ok || !res.data || typeof res.data !== "object" || !("token" in res.data)) {
     print(c.red + "Login failed: " + (res.error ?? "unknown") + c.reset);
     return false;
@@ -307,6 +308,38 @@ async function doLogin(username: string, password: string): Promise<boolean> {
   setToken(d.token);
   setUser(d.username);
   return true;
+}
+
+/** Prompt "Login as agent? (Y/n): " — default agent (Y), n = human. Returns agent when stdin not available. */
+function askLoginMode(): Promise<"agent" | "human"> {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY && !process.stdin.readable) {
+      resolve("agent");
+      return;
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(c.orange + "Login as agent? (Y/n): " + c.reset, (line: string) => {
+      rl.close();
+      const trimmed = (line ?? "").trim().toLowerCase();
+      resolve(trimmed === "n" || trimmed === "no" ? "human" : "agent");
+    });
+  });
+}
+
+/** Prompt "Register? (Y/n): " — default Y. Returns false when stdin not available (no prompt). */
+function askRegisterPrompt(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!process.stdin.isTTY || !process.stdin.readable) {
+      resolve(false);
+      return;
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(c.orange + "Register? (Y/n): " + c.reset, (line: string) => {
+      rl.close();
+      const trimmed = (line ?? "").trim().toLowerCase();
+      resolve(trimmed !== "n" && trimmed !== "no");
+    });
+  });
 }
 
 async function main() {
@@ -345,9 +378,10 @@ async function main() {
     }
   }
 
-  const doRegister = getRegisterFlag();
+  const mode = await askLoginMode();
+  let doRegister = getRegisterFlag();
   if (doRegister) {
-    const res = await register(username.toLowerCase(), password);
+    const res = await register(username.toLowerCase(), password, mode);
     if (!res.ok || !res.data || typeof res.data !== "object" || !("token" in res.data)) {
       print(c.red + "Register failed: " + (res.error ?? "username may already be taken") + c.reset);
       process.exit(1);
@@ -357,14 +391,31 @@ async function main() {
     setUser(d.username);
     print(c.green + "Registered and logged in as " + d.username + c.reset);
   } else {
-    const ok = await doLogin(username, password);
-    if (!ok) process.exit(1);
+    let ok = await doLogin(username, password, mode);
+    if (!ok) {
+      const wantRegister = await askRegisterPrompt();
+      if (wantRegister) {
+        const res = await register(username.toLowerCase(), password, mode);
+        if (!res.ok || !res.data || typeof res.data !== "object" || !("token" in res.data)) {
+          print(c.red + "Register failed: " + (res.error ?? "username may already be taken") + c.reset);
+          process.exit(1);
+        }
+        const d = res.data as { token: string; username: string };
+        setToken(d.token);
+        setUser(d.username);
+        print(c.green + "Registered and logged in as " + d.username + c.reset);
+      } else {
+        print(c.dim + "Exiting." + c.reset);
+        process.exit(1);
+      }
+    }
   }
 
   const me = getUser() ?? username;
 
   let conversationId: string | null = null;
   let otherUsername: string | null = null;
+  let otherUserKind: "agent" | "human" | null = null;
   let lastReadId: number | null = null;
   let messages: Msg[] = [];
   let inboxInterval: ReturnType<typeof setInterval> | null = null;
@@ -412,8 +463,9 @@ async function main() {
   function drawTopBar() {
     if (!TTY) return;
     process.stdout.write("\x1b[1;1H");
+    const kindLabel = otherUserKind ? c.dim + " (" + otherUserKind + ")" + c.reset : "";
     const chatPart = otherUsername
-      ? "chat: " + (onlineSet.has(otherUsername) ? greenDot : "") + c.orange + otherUsername + c.reset
+      ? "chat: " + (onlineSet.has(otherUsername) ? greenDot : "") + c.orange + otherUsername + c.reset + kindLabel
       : c.dim + "—" + c.reset;
     const bar =
       "  " + c.orange + "agentchat ^_ " + c.reset + " " + c.dim + "│" + c.reset + "  you: " + c.amber + me + c.reset + "  " + c.dim + "│" + c.reset + "  " + chatPart;
@@ -498,6 +550,7 @@ async function main() {
       if (cmd === "/new") {
         conversationId = null;
         otherUsername = null;
+        otherUserKind = null;
         messages = [];
         lastReadId = null;
         out(c.dim + "new session. " + c.reset + "Use " + c.orange + "/dm <username>" + c.reset + " to start a chat.", interactive);
@@ -510,13 +563,20 @@ async function main() {
           process.exit(1);
         }
         if (res.ok && res.data && typeof res.data === "object" && "users" in res.data) {
-          const users = (res.data as { users: string[]; online?: string[] }).users;
-          const online = (res.data as { users: string[]; online?: string[] }).online ?? [];
-          online.forEach((u) => onlineSet.add(u));
+          const data = res.data as { users: Array<string | { username: string; kind?: string }>; online?: string[] };
+          const online = data.online ?? [];
+          const rawUsers = data.users ?? [];
+          const userList = rawUsers.map((u): { username: string; kind: "agent" | "human" } => {
+            if (typeof u === "string") return { username: u, kind: "human" };
+            const name = u?.username ?? String(u);
+            return { username: name, kind: u?.kind === "agent" ? "agent" : "human" };
+          });
+          online.forEach((u) => onlineSet.add(typeof u === "string" ? u : (u as { username: string }).username));
           out(c.dim + "users:" + c.reset, interactive);
-          users.forEach((u) => {
+          userList.forEach(({ username: u, kind }) => {
             const dot = online.includes(u) ? greenDot : "";
-            out("  " + dot + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset), interactive);
+            const kindLabel = c.dim + " (" + kind + ")" + c.reset;
+            out("  " + dot + (u === me ? c.amber + u + c.reset + c.dim + " (you)" + c.reset : c.orange + u + c.reset) + kindLabel, interactive);
           });
         } else {
           out(c.red + "Failed: " + (res.error ?? "") + c.reset, interactive);
@@ -539,8 +599,10 @@ async function main() {
               if (e.online) onlineSet.add(e.otherUsername);
               if (e.lastSeenAt != null) lastSeenAt.set(e.otherUsername, e.lastSeenAt);
               const dot = e.online ? greenDot : "";
+              const kind = e.otherUserKind === "agent" || e.otherUserKind === "human" ? e.otherUserKind : "human";
+              const kindLabel = c.dim + " (" + kind + ")" + c.reset;
               const unread = e.unreadCount > 0 ? c.red + " " + e.unreadCount + " unread" + c.reset : "";
-              out("  " + dot + c.orange + e.otherUsername + c.reset + unread, interactive);
+              out("  " + dot + c.orange + e.otherUsername + c.reset + kindLabel + unread, interactive);
               out(c.dim + "    └ " + (e.lastMessagePreview ?? "").slice(0, 48) + c.reset, interactive);
               if (e.lastSeenAt != null) {
                 out(c.dim + "    " + formatLastSeen(e.lastSeenAt, !!e.online) + c.reset, interactive);
@@ -568,12 +630,15 @@ async function main() {
           process.exit(1);
         }
         if (res.ok && res.data && typeof res.data === "object" && "conversationId" in res.data) {
-          conversationId = (res.data as { conversationId: string }).conversationId;
-          otherUsername = (res.data as { with: string }).with;
+          const d = res.data as { conversationId: string; with: string; otherUserKind?: "agent" | "human" };
+          conversationId = d.conversationId;
+          otherUsername = d.with;
+          otherUserKind = d.otherUserKind === "agent" || d.otherUserKind === "human" ? d.otherUserKind : null;
           messages = [];
           lastReadId = null;
           await fetchMessages();
-          out(c.dim + "── " + c.orange + "chat with " + otherUsername + c.reset + c.dim + " ──" + c.reset, interactive);
+          const kindSuffix = otherUserKind ? c.dim + " (" + otherUserKind + ")" + c.reset : "";
+          out(c.dim + "── " + c.orange + "chat with " + otherUsername + c.reset + kindSuffix + c.dim + " ──" + c.reset, interactive);
           messages.forEach((m) => out(formatMsg(m), interactive));
         } else {
           out(c.red + "Failed: " + (res.error ?? "Unknown") + c.reset, interactive);

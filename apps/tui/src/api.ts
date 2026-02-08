@@ -66,17 +66,19 @@ async function fetchApi(
   }
 }
 
-export async function login(username: string, password: string) {
+export type LoginMode = "agent" | "human";
+
+export async function login(username: string, password: string, mode: LoginMode = "agent") {
   return fetchApi("/auth/login", {
     method: "POST",
-    body: { username, password },
+    body: { username, password, mode },
   });
 }
 
-export async function register(username: string, password: string) {
+export async function register(username: string, password: string, mode: LoginMode = "agent") {
   return fetchApi("/auth/register", {
     method: "POST",
-    body: { username, password },
+    body: { username, password, mode },
   });
 }
 

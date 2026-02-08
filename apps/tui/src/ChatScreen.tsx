@@ -53,6 +53,7 @@ function wrapText(text: string, maxLen: number): string[] {
 interface InboxItem {
   conversationId: string;
   otherUsername: string;
+  otherUserKind?: "agent" | "human";
   lastMessageAt: number;
   lastMessagePreview: string | null;
   unreadCount: number;
@@ -79,6 +80,7 @@ export function ChatScreen({
   const columns = stdout?.columns ?? 80;
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [otherUsername, setOtherUsername] = useState<string | null>(null);
+  const [otherUserKind, setOtherUserKind] = useState<"agent" | "human" | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [inbox, setInbox] = useState<InboxItem[]>([]);
   const [unreadTotal, setUnreadTotal] = useState(0);
@@ -190,6 +192,7 @@ export function ChatScreen({
       if (cmd === "/new") {
         setConversationId(null);
         setOtherUsername(null);
+        setOtherUserKind(null);
         setMessages([]);
         setCmdOutput("New session. Use /dm <username> to start a chat.");
         return;
@@ -201,8 +204,14 @@ export function ChatScreen({
           return;
         }
         if (res.ok && res.data && typeof res.data === "object" && "users" in res.data) {
-          const users = (res.data as { users: string[] }).users;
-          setCmdOutput("Users: " + users.join(", "));
+          const data = res.data as { users: Array<string | { username: string; kind?: string }> };
+          const userList = (data.users ?? []).map((u) => {
+            if (typeof u === "string") return `${u} (human)`;
+            const name = u?.username ?? String(u);
+            const kind = u?.kind === "agent" ? "agent" : "human";
+            return `${name} (${kind})`;
+          });
+          setCmdOutput("Users: " + userList.join(", "));
         } else {
           setCmdOutput("Failed to fetch users: " + (res.error ?? ""));
         }
@@ -224,10 +233,10 @@ export function ChatScreen({
           return;
         }
         if (res.ok && res.data && typeof res.data === "object" && "conversationId" in res.data) {
-          const cid = (res.data as { conversationId: string }).conversationId;
-          const withUser = (res.data as { with: string }).with;
-          setConversationId(cid);
-          setOtherUsername(withUser);
+          const d = res.data as { conversationId: string; with: string; otherUserKind?: "agent" | "human" };
+          setConversationId(d.conversationId);
+          setOtherUsername(d.with);
+          setOtherUserKind(d.otherUserKind === "agent" || d.otherUserKind === "human" ? d.otherUserKind : null);
           setMessages([]);
           setCmdOutput(null);
         } else {
@@ -246,11 +255,12 @@ export function ChatScreen({
           if (list.length === 0) {
             setCmdOutput("Inbox empty. Use /dm <user> to start a chat.");
           } else {
+            const kind = (e: InboxItem) => e.otherUserKind === "agent" || e.otherUserKind === "human" ? e.otherUserKind : "human";
             setCmdOutput(
               list
                 .map(
                   (e) =>
-                    `${e.otherUsername} (${e.unreadCount} unread): ${(e.lastMessagePreview ?? "").slice(0, 40)}`
+                    `${e.otherUsername} (${kind(e)}), ${e.unreadCount} unread: ${(e.lastMessagePreview ?? "").slice(0, 40)}`
                 )
                 .join("\n")
             );
@@ -318,7 +328,12 @@ export function ChatScreen({
     <Box flexDirection="column" width="100%">
       <Box borderStyle="single" borderColor="cyan" paddingX={1}>
         <Text bold>
-          agentchat ^_ | You: {me} | Chatting: {otherUsername ?? "-"} | Session:{" "}
+          agentchat ^_ | You: {me} | Chatting: {otherUsername ?? "-"}
+          {(() => {
+            const k = otherUserKind ?? inbox.find((e) => e.otherUsername === otherUsername)?.otherUserKind;
+            return otherUsername && k ? <Text color="gray"> ({k})</Text> : null;
+          })()}
+          {" | Session: "}
           {conversationId ?? "-"} | Unread: {unreadTotal}
         </Text>
       </Box>
