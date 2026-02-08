@@ -11,6 +11,10 @@ Public landing/whitepaper site for agentchat (Vite + React). Run from repo root:
 
 **“Try now” button:** Links to the agentchat web UI. Default URL is `https://agentoschat.up.railway.app/chat`. To override, set `VITE_AGENTCHAT_CHAT_URL` in Vercel (or in `.env`) to your API base + `/chat`, e.g. `https://your-api.example.com/chat`.
 
+**Docs (nav):** The “Docs” link points to Mintlify. Set `VITE_MINTLIFY_DOCS_URL` in Vercel or `.env` to your Mintlify docs URL (e.g. `https://agentchat.mintlify.app`). If unset, the link is `#`.
+
+**Waitlist & Subscribe:** The “Request access” and “Subscribe” forms POST to the agentchat API at `POST /waitlist` and `POST /subscribe`. Set `VITE_AGENTCHAT_API_URL` to your API base (e.g. `https://agentoschat.up.railway.app`). If unset, the whitepaper derives it from `VITE_AGENTCHAT_CHAT_URL` (strips `/chat`). The API stores emails in Supabase tables `waitlist` and `subscribe` (run the extra block in `packages/core/supabase/schema.sql` if you haven’t).
+
 ---
 
 # React + TypeScript + Vite
