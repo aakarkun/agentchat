@@ -1,79 +1,45 @@
-import { Database } from "bun:sqlite";
-import { mkdirSync, existsSync } from "fs";
-import path from "path";
+import postgres from "postgres";
 import type { InboxEntry } from "./types.js";
 
-const DEFAULT_PATH =
-  process.env.AGENTCHAT_DB_PATH ??
-  path.join(process.cwd(), "data", "agentchat.sqlite");
+const DATABASE_URL = process.env.DATABASE_URL;
 
-let db: Database | null = null;
+let sql: ReturnType<typeof postgres> | null = null;
 
-export function initDb(dbPath: string = DEFAULT_PATH): Database {
-  if (db) return db;
-  const dir = path.dirname(dbPath);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const database = new Database(dbPath);
-  database.run("PRAGMA journal_mode = WAL");
-  database.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS conversations (
-      id TEXT PRIMARY KEY,
-      user_a TEXT NOT NULL,
-      user_b TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      conversation_id TEXT NOT NULL,
-      from_user TEXT NOT NULL,
-      to_user TEXT NOT NULL,
-      body TEXT NOT NULL,
-      created_at INTEGER NOT NULL,
-      FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-    );
-    CREATE TABLE IF NOT EXISTS reads (
-      conversation_id TEXT NOT NULL,
-      username TEXT NOT NULL,
-      last_read_message_id INTEGER NOT NULL,
-      PRIMARY KEY (conversation_id, username),
-      FOREIGN KEY (conversation_id) REFERENCES conversations(id)
-    );
-    CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id, id);
-    CREATE INDEX IF NOT EXISTS idx_reads_username ON reads(username);
-  `);
-  // Migration: add token_valid_after for single-session / logout-everywhere
-  const tableInfo = database.prepare("PRAGMA table_info(users)").all() as { name: string }[];
-  if (!tableInfo.some((c) => c.name === "token_valid_after")) {
-    database.run("ALTER TABLE users ADD COLUMN token_valid_after INTEGER");
+function getSql(): ReturnType<typeof postgres> {
+  if (!sql) {
+    if (!DATABASE_URL?.trim()) {
+      throw new Error(
+        "DATABASE_URL is required. Set it to your Supabase (or Postgres) connection string."
+      );
+    }
+    sql = postgres(DATABASE_URL, { max: 10 });
   }
-  db = database;
-  return database;
+  return sql;
+}
+
+/** Connect to Postgres and ensure schema exists. Run once at startup. */
+export async function initDb(): Promise<ReturnType<typeof postgres>> {
+  if (sql) return sql;
+  getSql();
+  // Schema is applied via packages/core/supabase/schema.sql in Supabase; no-op here or run migrations if needed
+  return sql!;
 }
 
 /** Unix seconds. Tokens with iat < this are invalid (logged out everywhere or superseded by newer login). */
-export function getTokenValidAfter(username: string): number | null {
-  const d = getDb();
-  const row = d
-    .prepare("SELECT token_valid_after FROM users WHERE username = ?")
-    .get(username) as { token_valid_after: number | null } | undefined;
+export async function getTokenValidAfter(username: string): Promise<number | null> {
+  const s = getSql();
+  const [row] = await s`
+    SELECT token_valid_after FROM users WHERE username = ${username}
+  ` as { token_valid_after: number | null }[];
   const v = row?.token_valid_after;
   return v != null ? v : null;
 }
 
-export function setTokenValidAfter(username: string, timestampSeconds: number): void {
-  const d = getDb();
-  d.prepare("UPDATE users SET token_valid_after = ? WHERE username = ?").run(timestampSeconds, username);
-}
-
-export function getDb(): Database {
-  if (!db) return initDb();
-  return db;
+export async function setTokenValidAfter(username: string, timestampSeconds: number): Promise<void> {
+  const s = getSql();
+  await s`
+    UPDATE users SET token_valid_after = ${timestampSeconds} WHERE username = ${username}
+  `;
 }
 
 export function conversationId(userA: string, userB: string): string {
@@ -81,127 +47,151 @@ export function conversationId(userA: string, userB: string): string {
 }
 
 /** Returns true if the username is registered. */
-export function userExists(username: string): boolean {
-  const d = getDb();
-  const row = d.prepare("SELECT 1 FROM users WHERE username = ?").get(username);
+export async function userExists(username: string): Promise<boolean> {
+  const s = getSql();
+  const [row] = await s`SELECT 1 FROM users WHERE username = ${username}` as { "?column?": number }[];
   return row != null;
 }
 
-export function listUsers(): { username: string }[] {
-  const d = getDb();
-  const rows = d.prepare("SELECT username FROM users ORDER BY username").all() as {
-    username: string;
-  }[];
+export async function listUsers(): Promise<{ username: string }[]> {
+  const s = getSql();
+  const rows = await s`SELECT username FROM users ORDER BY username` as { username: string }[];
   return rows;
 }
 
-export function getOrCreateConversation(userA: string, userB: string): string {
+/** Insert user; returns User or null if username already exists (unique violation). */
+export async function createUser(
+  username: string,
+  passwordHash: string,
+  createdAt: number
+): Promise<{ id: number; username: string; password_hash: string; created_at: number } | null> {
+  const s = getSql();
+  try {
+    const [row] = await s`
+      INSERT INTO users (username, password_hash, created_at)
+      VALUES (${username}, ${passwordHash}, ${createdAt})
+      RETURNING id, username, password_hash, created_at
+    ` as { id: number; username: string; password_hash: string; created_at: number }[];
+    return row ?? null;
+  } catch (err: unknown) {
+    const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "";
+    if (code === "23505") return null; // unique_violation
+    throw err;
+  }
+}
+
+/** Get user by username for login. */
+export async function getUserByUsername(username: string): Promise<
+  { id: number; username: string; password_hash: string; created_at: number } | null
+> {
+  const s = getSql();
+  const [row] = await s`
+    SELECT id, username, password_hash, created_at FROM users WHERE username = ${username}
+  ` as { id: number; username: string; password_hash: string; created_at: number }[];
+  return row ?? null;
+}
+
+export async function getOrCreateConversation(userA: string, userB: string): Promise<string> {
   const id = conversationId(userA, userB);
-  const d = getDb();
-  const existing = d.prepare("SELECT id FROM conversations WHERE id = ?").get(id);
+  const s = getSql();
+  const [existing] = await s`SELECT id FROM conversations WHERE id = ${id}` as { id: string }[];
   if (existing) return id;
   const now = Date.now();
-  d.prepare(
-    "INSERT INTO conversations (id, user_a, user_b, updated_at) VALUES (?, ?, ?, ?)"
-  ).run(id, userA, userB, now);
+  await s`
+    INSERT INTO conversations (id, user_a, user_b, updated_at)
+    VALUES (${id}, ${userA}, ${userB}, ${now})
+  `;
   return id;
 }
 
-export function addMessage(
+export async function addMessage(
   conversationId: string,
   fromUser: string,
   toUser: string,
   body: string
-): number {
-  const d = getDb();
+): Promise<number> {
+  const s = getSql();
   const now = Date.now();
-  const result = d
-    .prepare(
-      `INSERT INTO messages (conversation_id, from_user, to_user, body, created_at)
-       VALUES (?, ?, ?, ?, ?)`
-    )
-    .run(conversationId, fromUser, toUser, body, now) as { lastInsertRowid: number };
-  d.prepare("UPDATE conversations SET updated_at = ? WHERE id = ?").run(
-    now,
-    conversationId
-  );
-  return result.lastInsertRowid as number;
+  const [row] = await s`
+    INSERT INTO messages (conversation_id, from_user, to_user, body, created_at)
+    VALUES (${conversationId}, ${fromUser}, ${toUser}, ${body}, ${now})
+    RETURNING id
+  ` as { id: number }[];
+  await s`
+    UPDATE conversations SET updated_at = ${now} WHERE id = ${conversationId}
+  `;
+  return row!.id;
 }
 
-export function getMessages(
+export async function getMessages(
   convId: string,
   beforeId: number | null,
   limit: number
-): { id: number; from_user: string; to_user: string; body: string; created_at: number }[] {
-  const d = getDb();
-  const stmt =
+): Promise<{ id: number; from_user: string; to_user: string; body: string; created_at: number }[]> {
+  const s = getSql();
+  const rows =
     beforeId == null
-      ? d.prepare(
-          `SELECT id, from_user, to_user, body, created_at FROM messages
-           WHERE conversation_id = ? ORDER BY id DESC LIMIT ?`
-        )
-      : d.prepare(
-          `SELECT id, from_user, to_user, body, created_at FROM messages
-           WHERE conversation_id = ? AND id < ? ORDER BY id DESC LIMIT ?`
-        );
-  const rows = (beforeId == null
-    ? stmt.all(convId, limit)
-    : stmt.all(convId, beforeId, limit)) as {
-    id: number;
-    from_user: string;
-    to_user: string;
-    body: string;
-    created_at: number;
-  }[];
-  return rows;
+      ? await s`
+          SELECT id, from_user, to_user, body, created_at FROM messages
+          WHERE conversation_id = ${convId} ORDER BY id DESC LIMIT ${limit}
+        `
+      : await s`
+          SELECT id, from_user, to_user, body, created_at FROM messages
+          WHERE conversation_id = ${convId} AND id < ${beforeId} ORDER BY id DESC LIMIT ${limit}
+        `;
+  return rows as { id: number; from_user: string; to_user: string; body: string; created_at: number }[];
 }
 
-export function setLastRead(convId: string, username: string, lastReadMessageId: number): void {
-  const d = getDb();
-  d.prepare(
-    `INSERT INTO reads (conversation_id, username, last_read_message_id)
-     VALUES (?, ?, ?)
-     ON CONFLICT(conversation_id, username) DO UPDATE SET last_read_message_id = ?`
-  ).run(convId, username, lastReadMessageId, lastReadMessageId);
+export async function setLastRead(
+  convId: string,
+  username: string,
+  lastReadMessageId: number
+): Promise<void> {
+  const s = getSql();
+  await s`
+    INSERT INTO reads (conversation_id, username, last_read_message_id)
+    VALUES (${convId}, ${username}, ${lastReadMessageId})
+    ON CONFLICT (conversation_id, username) DO UPDATE SET last_read_message_id = EXCLUDED.last_read_message_id
+  `;
 }
 
-export function getLastReadMessageId(convId: string, username: string): number | null {
-  const d = getDb();
-  const row = d
-    .prepare("SELECT last_read_message_id FROM reads WHERE conversation_id = ? AND username = ?")
-    .get(convId, username) as { last_read_message_id: number } | undefined;
+async function getLastReadMessageId(convId: string, username: string): Promise<number | null> {
+  const s = getSql();
+  const [row] = await s`
+    SELECT last_read_message_id FROM reads WHERE conversation_id = ${convId} AND username = ${username}
+  ` as { last_read_message_id: number }[];
   return row ? row.last_read_message_id : null;
 }
 
-export function getInbox(username: string): InboxEntry[] {
-  const d = getDb();
-  const convs = d
-    .prepare(
-      `SELECT id, user_a, user_b, updated_at FROM conversations
-       WHERE user_a = ? OR user_b = ?
-       ORDER BY updated_at DESC`
-    )
-    .all(username, username) as { id: string; user_a: string; user_b: string; updated_at: number }[];
+export async function getInbox(username: string): Promise<InboxEntry[]> {
+  const s = getSql();
+  const convs = await s`
+    SELECT id, user_a, user_b, updated_at FROM conversations
+    WHERE user_a = ${username} OR user_b = ${username}
+    ORDER BY updated_at DESC
+  ` as { id: string; user_a: string; user_b: string; updated_at: number }[];
 
   const out: InboxEntry[] = [];
   for (const c of convs) {
     const other = c.user_a === username ? c.user_b : c.user_a;
-    const lastMsg = d
-      .prepare(
-        `SELECT id, body, created_at FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1`
-      )
-      .get(c.id) as { id: number; body: string; created_at: number } | undefined;
-    const lastReadId = getLastReadMessageId(c.id, username);
-    const unreadCount =
-      lastMsg && lastReadId != null
-        ? (d.prepare(
-            `SELECT COUNT(*) as n FROM messages WHERE conversation_id = ? AND id > ? AND to_user = ?`
-          ).get(c.id, lastReadId, username) as { n: number }).n
-        : lastMsg
-          ? (d.prepare(
-              `SELECT COUNT(*) as n FROM messages WHERE conversation_id = ? AND to_user = ?`
-            ).get(c.id, username) as { n: number }).n
-          : 0;
+    const [lastMsg] = await s`
+      SELECT id, body, created_at FROM messages WHERE conversation_id = ${c.id} ORDER BY id DESC LIMIT 1
+    ` as { id: number; body: string; created_at: number }[];
+    const lastReadId = await getLastReadMessageId(c.id, username);
+    let unreadCount: number;
+    if (lastMsg && lastReadId != null) {
+      const [r] = await s`
+        SELECT COUNT(*)::int as n FROM messages WHERE conversation_id = ${c.id} AND id > ${lastReadId} AND to_user = ${username}
+      ` as { n: number }[];
+      unreadCount = Number(r?.n ?? 0);
+    } else if (lastMsg) {
+      const [r] = await s`
+        SELECT COUNT(*)::int as n FROM messages WHERE conversation_id = ${c.id} AND to_user = ${username}
+      ` as { n: number }[];
+      unreadCount = Number(r?.n ?? 0);
+    } else {
+      unreadCount = 0;
+    }
     out.push({
       conversation_id: c.id,
       other_username: other,
@@ -213,7 +203,7 @@ export function getInbox(username: string): InboxEntry[] {
   return out;
 }
 
-export function getTotalUnreadCount(username: string): number {
-  const inbox = getInbox(username);
+export async function getTotalUnreadCount(username: string): Promise<number> {
+  const inbox = await getInbox(username);
   return inbox.reduce((s, e) => s + e.unread_count, 0);
 }

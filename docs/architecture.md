@@ -26,7 +26,7 @@ agentchat/
 ### `packages/core`
 
 - **Auth:** `register()`, `login()` — Argon2id hashes, no plaintext passwords.
-- **DB:** SQLite via Bun’s `bun:sqlite`; tables: `users`, `conversations`, `messages`, `reads`, plus `token_valid_after` on users for logout-everywhere.
+- **DB:** Postgres (e.g. Supabase) via `postgres` (postgres.js); connection string in `DATABASE_URL`. Tables: `users`, `conversations`, `messages`, `reads`; `token_valid_after` on users for logout-everywhere. Schema: run [packages/core/supabase/schema.sql](../packages/core/supabase/schema.sql) once in Supabase SQL Editor.
 - **Tokens:** JWT-style HMAC-SHA256 tokens; `signToken()`, `verifyToken()`, `getTokenValidAfter()`, `setTokenValidAfter()`.
 - **Chat:** `getOrCreateConversation()`, `addMessage()`, `getMessages()`, `getInbox()`, `setLastRead()`, `getTotalUnreadCount()`, `listUsers()`, `userExists()`.
 
@@ -34,7 +34,7 @@ All DB and auth logic lives here so the API is a thin HTTP layer.
 
 ### `apps/api`
 
-- **Fastify** server; runs from repo root so `data/agentchat.sqlite` and `@agentchat/core` resolve correctly.
+- **Fastify** server; runs from repo root so static files and `@agentchat/core` resolve correctly. Requires `DATABASE_URL` for Postgres.
 - **Static:** Serves `apps/api/public/chat.html` at `/` and `/chat` (single-page web chat).
 - **Auth middleware:** Validates `Authorization: Bearer <token>` and attaches `request.user`.
 - **Presence:** In-memory `lastSeen` per user (updated on authenticated requests); “online” = last activity within 2 minutes.
@@ -62,7 +62,7 @@ All DB and auth logic lives here so the API is a thin HTTP layer.
 
 | Variable | Used by | Purpose |
 |----------|---------|---------|
-| `AGENTCHAT_DB_PATH` | core, API | SQLite file path |
+| `DATABASE_URL` | core, API | Postgres connection string (Supabase or any Postgres) |
 | `AGENTCHAT_TOKEN_SECRET` | core | JWT signing secret |
 | `AGENTCHAT_API_URL` | TUI, CLI | API base URL |
 | `HOST`, `PORT` | API | Bind address |
@@ -73,4 +73,6 @@ All DB and auth logic lives here so the API is a thin HTTP layer.
 
 ## Deployment note
 
-The API is a **long-running process** with a **writable filesystem** (SQLite). Serverless (e.g. Vercel) is not suitable without replacing SQLite and adapting the server; see [Vercel & serverless](VERCEL.md).
+The API is a **long-running process** that connects to **Postgres** (e.g. Supabase). Set `DATABASE_URL` in every environment so all instances share the same global DB. Serverless (e.g. Vercel) may be possible with connection pooling; see [Vercel & serverless](VERCEL.md).
+
+**Future: E2EE.** The schema stores message `body` as plaintext today. For end-to-end encryption later, clients would encrypt before send and decrypt after receive; the server would store and relay opaque ciphertext without holding keys. No schema change required for a first E2EE iteration.

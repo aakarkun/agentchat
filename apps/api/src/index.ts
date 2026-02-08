@@ -19,11 +19,9 @@ import {
   getTotalUnreadCount,
 } from "@agentchat/core";
 
-// Run from repo root so data/agentchat.sqlite resolves correctly
+// Run from repo root so static files and paths resolve correctly
 const root = path.resolve(import.meta.dir, "..", "..");
 if (process.cwd() !== root) process.chdir(root);
-
-ensureDb();
 
 const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT = parseInt(process.env.PORT ?? "8787", 10);
@@ -41,9 +39,13 @@ function isOnline(username: string): boolean {
 
 // Web chat UI — register first so GET / is always available (path relative to this file)
 const chatHtmlPath = path.join(import.meta.dir, "..", "public", "chat.html");
-const chatHtml = fs.readFileSync(chatHtmlPath, "utf8");
-fastify.get("/", async (_request, reply) => reply.type("text/html").send(chatHtml));
-fastify.get("/chat", async (_request, reply) => reply.type("text/html").send(chatHtml));
+const isDev = process.env.NODE_ENV !== "production";
+function getChatHtml(): string {
+  return isDev ? fs.readFileSync(chatHtmlPath, "utf8") : chatHtmlCached;
+}
+const chatHtmlCached = fs.readFileSync(chatHtmlPath, "utf8");
+fastify.get("/", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
+fastify.get("/chat", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -69,7 +71,7 @@ async function authMiddleware(
   if (!payload) {
     return reply.code(401).send({ error: "Invalid or expired token" });
   }
-  const validAfter = getTokenValidAfter(payload.username);
+  const validAfter = await getTokenValidAfter(payload.username);
   if (validAfter != null && payload.iat < validAfter) {
     return reply.code(401).send({ error: "Logged out from all sessions" });
   }
@@ -80,7 +82,7 @@ async function authMiddleware(
 
 fastify.post("/logout", { preHandler: authMiddleware }, async (request, reply) => {
   const username = request.user!.username;
-  setTokenValidAfter(username, Math.floor(Date.now() / 1000));
+  await setTokenValidAfter(username, Math.floor(Date.now() / 1000));
   lastSeen.delete(username);
   return reply.send({ ok: true });
 });
@@ -97,7 +99,7 @@ fastify.post<{
     return reply.code(409).send({ error: "Username already taken" });
   }
   const iat = Math.floor(Date.now() / 1000);
-  setTokenValidAfter(user.username, iat);
+  await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
   return { token, username: user.username };
 });
@@ -114,13 +116,14 @@ fastify.post<{
     return reply.code(401).send({ error: "Invalid credentials" });
   }
   const iat = Math.floor(Date.now() / 1000);
-  setTokenValidAfter(user.username, iat);
+  await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
   return { token, username: user.username };
 });
 
 fastify.get("/users", { preHandler: authMiddleware }, async (request, reply) => {
-  const users = listUsers().map((u) => u.username);
+  const list = await listUsers();
+  const users = list.map((u) => u.username);
   const online = users.filter((u) => isOnline(u));
   return { users, online };
 });
@@ -132,19 +135,19 @@ fastify.post<{
   const to = (request.body?.to ?? "").trim().toLowerCase();
   if (!to) return reply.code(400).send({ error: "to required" });
   if (to === me) return reply.code(400).send({ error: "Cannot DM yourself" });
-  if (!userExists(to)) {
+  if (!(await userExists(to))) {
     return reply.code(404).send({ error: "User not found" });
   }
-  const convId = getOrCreateConversation(me, to);
+  const convId = await getOrCreateConversation(me, to);
   return { conversationId: convId, with: to };
 });
 
 fastify.get("/inbox", { preHandler: authMiddleware }, async (request, reply) => {
   reply.header("Cache-Control", "no-store");
   const me = request.user!.username;
-  const inbox = getInbox(me);
-  return {
-    inbox: inbox.map((e) => ({
+  const inbox = await getInbox(me);
+  const inboxWithMeta = await Promise.all(
+    inbox.map(async (e) => ({
       conversationId: e.conversation_id,
       otherUsername: e.other_username,
       lastMessageAt: e.last_message_at,
@@ -152,9 +155,10 @@ fastify.get("/inbox", { preHandler: authMiddleware }, async (request, reply) => 
       unreadCount: e.unread_count,
       online: isOnline(e.other_username),
       lastSeenAt: lastSeen.get(e.other_username) ?? null,
-      otherUserRegistered: userExists(e.other_username),
-    })),
-  };
+      otherUserRegistered: await userExists(e.other_username),
+    }))
+  );
+  return { inbox: inboxWithMeta };
 });
 
 fastify.get<{
@@ -174,7 +178,7 @@ fastify.get<{
     100,
     parseInt(request.query.limit ?? "50", 10) || 50
   );
-  const rows = getMessages(convId, beforeId, limit);
+  const rows = await getMessages(convId, beforeId, limit);
   return {
     messages: rows.map((r) => ({
       id: r.id,
@@ -203,10 +207,10 @@ fastify.post<{
   if (toUser !== userA && toUser !== userB) {
     return reply.code(400).send({ error: "Invalid recipient for this conversation" });
   }
-  if (!userExists(toUser)) {
+  if (!(await userExists(toUser))) {
     return reply.code(404).send({ error: "Recipient is not a registered user" });
   }
-  const id = addMessage(cid, me, toUser, String(body));
+  const id = await addMessage(cid, me, toUser, String(body));
   return { id, conversationId: cid, to: toUser, body: String(body) };
 });
 
@@ -223,13 +227,13 @@ fastify.post<{
   if (!userA || !userB || (userA !== me && userB !== me)) {
     return reply.code(403).send({ error: "Not part of this conversation" });
   }
-  setLastRead(cid, me, lastReadMessageId);
+  await setLastRead(cid, me, lastReadMessageId);
   return { ok: true };
 });
 
 fastify.get("/unread", { preHandler: authMiddleware }, async (request, reply) => {
   const me = request.user!.username;
-  const count = getTotalUnreadCount(me);
+  const count = await getTotalUnreadCount(me);
   return { count };
 });
 
@@ -247,6 +251,7 @@ fastify.get("/presence", { preHandler: authMiddleware }, async (_request, reply)
 
 async function main() {
   try {
+    await ensureDb();
     await fastify.listen({ host: HOST, port: PORT });
     fastify.log.info(`Web chat: http://${HOST}:${PORT}/`);
   } catch (err) {

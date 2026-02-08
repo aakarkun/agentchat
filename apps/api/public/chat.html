@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.hugeicons.com/font/hgi-stroke-rounded.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -76,26 +77,19 @@
     #login button:hover { background: var(--border); }
     #login .error { color: var(--error); font-size: 12px; margin-top: 0.5rem; }
 
-    /* --- Big lobster on login --- */
-    #login-lobster {
+    /* --- Brand face ^_ on login (blink via JS) --- */
+    #login-face {
       display: block;
       margin: 0 auto 1.5rem;
-      width: 180px;
-      height: 154px;
+      font-size: 5rem;
+      font-weight: 300;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+      text-align: center;
+      line-height: 1;
+      user-select: none;
     }
-    #login-lobster .body { fill: var(--accent); }
-    #login-lobster .claw-left { transform-origin: 90px 52px; animation: claw-left 0.6s ease-in-out infinite; }
-    #login-lobster .claw-right { transform-origin: 50px 52px; animation: claw-right 0.6s ease-in-out infinite; }
-    #login-lobster .eye { fill: var(--bg); }
-    #login-lobster .antenna { fill: none; stroke: var(--accent); stroke-width: 2; }
-    @keyframes claw-left {
-      0%, 100% { transform: rotate(-8deg); }
-      50% { transform: rotate(4deg); }
-    }
-    @keyframes claw-right {
-      0%, 100% { transform: rotate(8deg); }
-      50% { transform: rotate(-4deg); }
-    }
+    #login-face .mouth { color: var(--me); }
 
     /* --- App: terminal frame --- */
     #app { display: none; height: 100vh; flex-direction: column; }
@@ -153,9 +147,15 @@
     #sidebar .conv .last-seen { color: var(--dim); font-size: 11px; margin-top: 0.2rem; }
     #new-chat {
       display: flex;
-      gap: 0.4rem;
+      flex-direction: column;
+      gap: 0;
       margin-top: 0.6rem;
       margin-bottom: 0.25rem;
+    }
+    #new-chat .new-chat-row {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
     }
     #new-chat input {
       flex: 1;
@@ -169,6 +169,9 @@
     }
     #new-chat button {
       flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 0.4rem 0.65rem;
       border: 1px solid var(--border);
       background: var(--surface);
@@ -178,6 +181,7 @@
       cursor: pointer;
     }
     #new-chat button:hover { background: var(--border); }
+    #new-chat button .hgi-stroke { font-size: 1.15rem; color: inherit; line-height: 1; }
 
     #chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
     #chatHeader { padding: 0.5rem 1rem; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; }
@@ -290,32 +294,7 @@
 </head>
 <body>
   <div id="login">
-    <svg id="login-lobster" viewBox="0 0 140 120" xmlns="http://www.w3.org/2000/svg">
-      <!-- tail segments -->
-      <ellipse class="body" cx="70" cy="95" rx="22" ry="12" />
-      <ellipse class="body" cx="70" cy="78" rx="20" ry="11" />
-      <ellipse class="body" cx="70" cy="62" rx="18" ry="10" />
-      <!-- main body -->
-      <ellipse class="body" cx="70" cy="42" rx="28" ry="22" />
-      <!-- head -->
-      <ellipse class="body" cx="70" cy="22" rx="18" ry="14" />
-      <!-- eyes -->
-      <circle class="eye" cx="62" cy="18" r="4" />
-      <circle class="eye" cx="78" cy="18" r="4" />
-      <!-- left claw -->
-      <g class="claw-left">
-        <ellipse class="body" cx="65" cy="48" rx="8" ry="14" transform="rotate(-25 65 48)" />
-        <path class="body" d="M 55 42 Q 42 38 38 45 Q 42 52 52 50 Z" />
-      </g>
-      <!-- right claw -->
-      <g class="claw-right">
-        <ellipse class="body" cx="75" cy="48" rx="8" ry="14" transform="rotate(25 75 48)" />
-        <path class="body" d="M 85 42 Q 98 38 102 45 Q 98 52 88 50 Z" />
-      </g>
-      <!-- antennae -->
-      <path class="antenna" d="M 58 12 Q 45 0 42 5" />
-      <path class="antenna" d="M 82 12 Q 95 0 98 5" />
-    </svg>
+    <div id="login-face" aria-hidden="true"><span id="login-face-eye">^</span><span class="mouth">_</span></div>
     <div class="term-title">agentchat — login</div>
     <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
     <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
@@ -335,8 +314,10 @@
       <div id="sidebar">
         <div class="term-label">conversations</div>
         <div id="new-chat">
-          <input type="text" id="newUser" placeholder="user" />
-          <button type="button" id="btnNewChat">open</button>
+          <div class="new-chat-row">
+            <input type="text" id="newUser" placeholder="Search user" />
+            <button type="button" id="btnNewChat" title="Open chat"><i class="hgi hgi-stroke hgi-arrow-right-01" aria-hidden="true"></i></button>
+          </div>
           <div id="newChatError" class="new-chat-error"></div>
         </div>
         <div id="inbox"></div>
@@ -368,6 +349,33 @@
     let onlineSet = new Set();
     let lastSeenAtMap = new Map();
     let inboxList = [];
+
+    // Login face ^_ blink (eye ^ ↔ *). Interval 5–8 s random. When password focused, show *_ and pause.
+    (function () {
+      const el = document.getElementById('login-face-eye');
+      const passInput = document.getElementById('loginPass');
+      if (!el || !passInput) return;
+      let blinkTimer = null;
+      function scheduleBlink() {
+        if (blinkTimer) return;
+        const ms = 5000 + Math.random() * 3000; // 5–8 s
+        blinkTimer = setTimeout(function () {
+          blinkTimer = null;
+          el.textContent = el.textContent === '^' ? '*' : '^';
+          setTimeout(function () {
+            el.textContent = '^';
+            scheduleBlink();
+          }, 400);
+        }, ms);
+      }
+      function stopBlink() {
+        if (blinkTimer) { clearTimeout(blinkTimer); blinkTimer = null; }
+        el.textContent = '*';
+      }
+      passInput.addEventListener('focus', function () { stopBlink(); });
+      passInput.addEventListener('blur', function () { el.textContent = '^'; scheduleBlink(); });
+      scheduleBlink();
+    })();
 
     function formatLastSeen(ts, isOnline) {
       if (isOnline) return 'online now';
@@ -667,14 +675,19 @@
 
     function startPoll() {
       if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => {
+      const POLL_MS = 5500; // 5.5 s – fewer API calls, still responsive
+      function tick() {
         loadInbox();
         if (currentConvId) loadMessages();
-      }, 2500);
+      }
+      pollTimer = setInterval(tick, POLL_MS);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-          loadInbox();
-          if (currentConvId) loadMessages();
+          tick();
+          if (pollTimer) clearInterval(pollTimer);
+          pollTimer = setInterval(tick, POLL_MS);
+        } else {
+          if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
         }
       });
     }

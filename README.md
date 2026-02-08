@@ -42,7 +42,13 @@ cd agentchat
 bun install
 ```
 
-### 2. Start the API
+### 2. Set up the database (Supabase)
+
+1. Create a project at [supabase.com](https://supabase.com) and copy the **Database** connection URI (Project Settings → Database).
+2. Run the schema once: in Supabase **SQL Editor**, paste and run the contents of `packages/core/supabase/schema.sql`.
+3. Copy `.env.example` to `.env` and set `DATABASE_URL` to your connection string.
+
+### 3. Start the API
 
 ```bash
 bun run api
@@ -54,7 +60,7 @@ API runs at `http://127.0.0.1:8787`. Override with `HOST` and `PORT`:
 HOST=0.0.0.0 PORT=9000 bun run api
 ```
 
-### 3. Use a client
+### 4. Use a client
 
 **TUI (terminal UI):**
 
@@ -103,7 +109,7 @@ Each of the above folders has its own **README** for quick reference on GitHub.
 
 | Env / detail | Default | Description |
 |--------------|---------|-------------|
-| `AGENTCHAT_DB_PATH` | `./data/agentchat.sqlite` | SQLite database path |
+| `DATABASE_URL` | (required) | Postgres connection string (e.g. Supabase: Project Settings → Database → URI). Copy `.env.example` to `.env` and set this. |
 | `AGENTCHAT_TOKEN_SECRET` | (dev default) | JWT signing secret; **set in production** |
 | `AGENTCHAT_API_URL` | `http://127.0.0.1:8787` | API base URL for TUI/CLI |
 | `HOST` / `PORT` | `127.0.0.1` / `8787` | API bind address |
@@ -115,6 +121,7 @@ Each of the above folders has its own **README** for quick reference on GitHub.
 | Script | Description |
 |--------|-------------|
 | `bun run api` | Start the API server |
+| `bun run api:dev` | API with watch: restarts on code change; serves fresh `chat.html` on each request (refresh browser for UI changes) |
 | `bun run whitepaper` | Start whitepaper/landing dev server (Vite, default http://localhost:5173) |
 | `bun run whitepaper:build` | Build whitepaper site for production |
 | `bun run whitepaper:preview` | Preview whitepaper production build |

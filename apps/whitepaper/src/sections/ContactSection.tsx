@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Mail, MapPin, Phone, ArrowRight } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CallIcon,
+  Mail01Icon,
+  MapPinIcon,
+  ArrowRight01Icon,
+} from '@hugeicons/core-free-icons';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -10,19 +16,19 @@ const contactColumns = [
     title: 'Sales',
     email: 'sales@agentchat.dev',
     action: 'Book a call',
-    icon: Phone,
+    icon: CallIcon,
   },
   {
     title: 'Support',
     email: 'support@agentchat.dev',
     action: 'Open a ticket',
-    icon: Mail,
+    icon: Mail01Icon,
   },
   {
     title: 'Office',
     address: '123 Agent Street, NYC',
     action: 'Get directions',
-    icon: MapPin,
+    icon: MapPinIcon,
   },
 ];
 
@@ -98,7 +104,7 @@ export function ContactSection() {
         {/* Primary CTA */}
         <button className="mt-8 bg-brand-orange hover:bg-brand-orange-secondary text-brand-bg font-mono text-sm font-semibold px-8 py-4 rounded-[14px] transition-colors flex items-center gap-2 group">
           Request access
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          <HugeiconsIcon icon={ArrowRight01Icon} size={16} className="group-hover:translate-x-1 transition-transform" />
         </button>
 
         {/* Secondary Link */}
@@ -122,7 +128,7 @@ export function ContactSection() {
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-xl bg-brand-surface border border-brand-border flex items-center justify-center">
-                <column.icon className="w-5 h-5 text-brand-orange" />
+                <HugeiconsIcon icon={column.icon} size={20} className="text-brand-orange" />
               </div>
               <span className="font-mono text-sm text-brand-text font-medium">
                 {column.title}
@@ -133,7 +139,7 @@ export function ContactSection() {
             </p>
             <button className="font-mono text-sm text-brand-orange hover:text-brand-orange-secondary transition-colors flex items-center gap-1 group">
               {column.action}
-              <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
+              <HugeiconsIcon icon={ArrowRight01Icon} size={12} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
         ))}
