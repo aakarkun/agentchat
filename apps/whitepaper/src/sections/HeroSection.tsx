@@ -1,8 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
+
+type FaceState = '^_' | '-_' | '*_';
+
+const FACE_IDLE_BLINK_MS = 5200;   // human-like: blink every ~5 s
+const FACE_CYCLE_MS = 15000;       // full cycle rarely – ^_ is main logo
+const FACE_BLINK_DURATION_MS = 380; // *_ (eye closed) – natural blink length
+const FACE_CYCLE_HOLD_MS = 600;    // -_ just a brief moment
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -10,6 +17,62 @@ export function HeroSection() {
   const wordmarkRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
   const copyRef = useRef<HTMLDivElement>(null);
+  const [face, setFace] = useState<FaceState>('^_');
+  const cycleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blinkTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doBlink = useCallback(() => {
+    setFace('*_');
+    if (blinkTimeoutRef.current) clearTimeout(blinkTimeoutRef.current);
+    blinkTimeoutRef.current = setTimeout(() => {
+      setFace('^_');
+      blinkTimeoutRef.current = null;
+    }, FACE_BLINK_DURATION_MS);
+  }, []);
+
+  const doCycle = useCallback(() => {
+    setFace('-_');
+    if (cycleTimeoutRef.current) clearTimeout(cycleTimeoutRef.current);
+    cycleTimeoutRef.current = setTimeout(() => {
+      setFace('*_');
+      cycleTimeoutRef.current = setTimeout(() => {
+        setFace('^_');
+        cycleTimeoutRef.current = null;
+      }, FACE_BLINK_DURATION_MS);
+    }, FACE_CYCLE_HOLD_MS);
+  }, []);
+
+  // Frequent idle blink (every few seconds)
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFace((prev) => {
+        if (prev !== '^_') return prev;
+        doBlink();
+        return '*_';
+      });
+    }, FACE_IDLE_BLINK_MS);
+    return () => clearInterval(id);
+  }, [doBlink]);
+
+  // Slower cycle: ^_ → -_ (hold) → *_ (blink) → ^_. Only start when at rest so we don't cut a blink.
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFace((prev) => {
+        if (prev !== '^_') return prev;
+        doCycle();
+        return '-_'; // show -_ immediately
+      });
+    }, FACE_CYCLE_MS);
+    return () => clearInterval(id);
+  }, [doCycle]);
+
+  // Clean up timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (cycleTimeoutRef.current) clearTimeout(cycleTimeoutRef.current);
+      if (blinkTimeoutRef.current) clearTimeout(blinkTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -102,7 +165,7 @@ export function HeroSection() {
         className="absolute left-[4vw] top-[4vh]"
       >
         <span className="font-mono text-brand-orange text-lg md:text-xl">
-          agentchat <span className="text-brand-amber">^_</span>
+          agentchat <span className="text-brand-amber" aria-hidden="true">^_</span>
         </span>
       </div>
 
@@ -117,20 +180,21 @@ export function HeroSection() {
         <span className="font-mono text-sm text-brand-dim hover:text-brand-text cursor-pointer transition-colors">Contact</span>
       </div>
 
-      {/* Face Glyph */}
+      {/* Face Glyph – cycles ^_ → -_ → *_ and blinks on idle + on user activity */}
       <div 
         ref={faceRef}
         className="absolute left-1/2 top-[52%] -translate-x-1/2 -translate-y-1/2"
       >
         <span 
-          className="font-mono text-brand-text select-none"
+          className="font-mono text-brand-text select-none transition-opacity duration-150"
           style={{ 
             fontSize: 'clamp(64px, 10vw, 140px)',
             fontWeight: 300,
             letterSpacing: '-0.02em'
           }}
+          aria-hidden="true"
         >
-          ^_
+          {face}
         </span>
       </div>
 
