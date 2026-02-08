@@ -44,22 +44,38 @@
 
     /* --- Login (terminal style) --- */
     #login {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 0 1rem 1rem;
+      box-sizing: border-box;
+    }
+    #login .login-box-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 2rem 0;
+    }
+    #login-box {
       max-width: 360px;
-      margin: 3rem auto;
+      width: 100%;
       padding: 1rem 1.25rem;
       background: var(--surface);
       border: 1px solid var(--border);
       box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
       border-radius: var(--radius);
     }
-    #login .term-title {
+    #login-box .term-title {
       font-weight: 600;
       color: var(--dim);
       margin-bottom: 1rem;
       font-size: 12px;
     }
-    #login .term-title::before { content: "┌─ "; color: var(--accent); }
-    #login input {
+    #login-box .term-title::before { content: "┌─ "; color: var(--accent); }
+    #login-box input {
       width: 100%;
       padding: 0.5rem 0.6rem;
       margin-bottom: 0.6rem;
@@ -70,8 +86,8 @@
       font-size: 13px;
       border-radius: var(--radius-sm);
     }
-    #login input::placeholder { color: var(--dim); }
-    #login button {
+    #login-box input::placeholder { color: var(--dim); }
+    #login-box button {
       padding: 0.5rem 0.9rem;
       margin-right: 0.4rem;
       margin-top: 0.2rem;
@@ -83,8 +99,31 @@
       cursor: pointer;
       border-radius: var(--radius-sm);
     }
-    #login button:hover { background: var(--border); }
-    #login .error { color: var(--error); font-size: 12px; margin-top: 0.5rem; }
+    #login-box button:hover { background: var(--border); }
+    #login-box .error { color: var(--error); font-size: 12px; margin-top: 0.5rem; }
+
+    /* --- Login footer (whitepaper-style) --- */
+    #login-footer {
+      margin-top: auto;
+      width: 100%;
+      max-width: 360px;
+      padding: 1.25rem 0 0;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      font-family: inherit;
+    }
+    #login-footer .login-footer-inner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem 1.25rem;
+      color: var(--dim);
+    }
+    #login-footer .login-footer-logo { color: var(--accent); font-weight: 500; font-size: 1rem; }
+    #login-footer .login-footer-tagline { font-size: 11px; }
+    #login-footer a { color: var(--dim); text-decoration: none; }
+    #login-footer a:hover { color: var(--text); }
 
     /* --- Brand face ^_ on login (blink via JS) --- */
     #login-face {
@@ -98,8 +137,9 @@
       line-height: 1;
       user-select: none;
     }
-    #login-face .mouth { color: var(--me); }
+    #login-face .mouth { color: var(--accent); }
     #login-face-eye.eye-closed { opacity: 0.45; }
+    #login-face-eye.eye-error { opacity: 1; }
 
     /* --- App: terminal frame --- */
     #app { display: none; height: 100vh; flex-direction: column; overflow: hidden; }
@@ -404,7 +444,7 @@
       background: var(--surface);
       border-radius: 0 0 var(--radius) 0;
     }
-    #send .prompt { color: var(--me); font-size: 12px; }
+    #send .prompt { color: var(--accent); font-size: 12px; }
     #send input {
       flex: 1;
       padding: 0.5rem 0.6rem;
@@ -444,13 +484,26 @@
 </head>
 <body>
   <div id="login">
-    <div id="login-face" aria-hidden="true"><span id="login-face-eye">^</span><span class="mouth">_</span></div>
-    <div class="term-title">login</div>
-    <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
-    <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
-    <button type="button" id="btnLogin">login</button>
-    <button type="button" id="btnRegister">register</button>
-    <div id="loginError" class="error"></div>
+    <div class="login-box-wrap">
+      <div id="login-box">
+      <div id="login-face" aria-hidden="true"><span id="login-face-eye">^</span><span class="mouth">_</span></div>
+      <div class="term-title">login</div>
+      <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
+      <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
+      <button type="button" id="btnLogin">login</button>
+      <button type="button" id="btnRegister">register</button>
+      <div id="loginError" class="error"></div>
+      </div>
+    </div>
+    <footer id="login-footer">
+      <div class="login-footer-inner">
+        <span class="login-footer-logo">^_</span>
+        <span class="login-footer-tagline">Part of AgentOS</span>
+        <a href="#">Privacy</a>
+        <a href="#">Terms</a>
+        <span class="login-footer-copy">© 2026 Empresa Original</span>
+      </div>
+    </footer>
   </div>
   <div id="app">
     <div id="header">
@@ -507,7 +560,7 @@
     let inboxList = [];
     let inboxLoadedOnce = false;
 
-    // Login face ^_ blink (eye ^ ↔ *). Interval 5–8 s random. When password focused, show *_ and pause.
+    // Login face ^_ blink (eye ^ ↔ *). When password focused, show faded *_ . On login error, show -_
     (function () {
       const el = document.getElementById('login-face-eye');
       const passInput = document.getElementById('loginPass');
@@ -516,14 +569,34 @@
       function setEye(closed) {
         el.textContent = closed ? '*' : '^';
         el.classList.toggle('eye-closed', !!closed);
+        el.classList.remove('eye-error');
+      }
+      function setEyeError(hasError) {
+        if (blinkTimer) { clearTimeout(blinkTimer); blinkTimer = null; }
+        if (hasError) {
+          el.textContent = '-';
+          el.classList.remove('eye-closed');
+          el.classList.add('eye-error');
+          return;
+        }
+        el.classList.remove('eye-error');
+        if (passInput === document.activeElement) {
+          setEye(true);
+        } else {
+          setEye(false);
+          scheduleBlink();
+        }
       }
       function scheduleBlink() {
         if (blinkTimer) return;
+        if (el.classList.contains('eye-error')) return;
         const ms = 5000 + Math.random() * 3000; // 5–8 s
         blinkTimer = setTimeout(function () {
           blinkTimer = null;
+          if (el.classList.contains('eye-error')) return;
           setEye(el.textContent === '^');
           setTimeout(function () {
+            if (el.classList.contains('eye-error')) return;
             setEye(false);
             scheduleBlink();
           }, 400);
@@ -535,6 +608,7 @@
       }
       passInput.addEventListener('focus', function () { stopBlink(); });
       passInput.addEventListener('blur', function () { setEye(false); scheduleBlink(); });
+      window.setLoginFaceError = setEyeError;
       scheduleBlink();
     })();
 
@@ -635,6 +709,9 @@
 
     function setLoginError(msg) {
       document.getElementById('loginError').textContent = msg || '';
+      if (typeof window.setLoginFaceError === 'function') {
+        window.setLoginFaceError(!!msg);
+      }
     }
 
     function clearSession() {
