@@ -14,7 +14,7 @@ export function PresenceSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLButtonElement>(null);
+  const ctaRef = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -157,13 +157,14 @@ export function PresenceSection() {
         </div>
       </div>
 
-      {/* CTA Button */}
-      <button 
+      {/* CTA — scroll to pricing */}
+      <a
         ref={ctaRef}
-        className="absolute left-1/2 bottom-[7vh] -translate-x-1/2 bg-brand-orange hover:bg-brand-orange-secondary text-brand-bg font-mono text-sm font-semibold px-7 py-3.5 rounded-[14px] transition-colors"
+        href="#pricing"
+        className="absolute left-1/2 bottom-[7vh] -translate-x-1/2 bg-brand-orange hover:bg-brand-orange-secondary text-brand-bg font-mono text-sm font-semibold px-7 py-3.5 rounded-[14px] transition-colors inline-block no-underline"
       >
         See pricing
-      </button>
+      </a>
     </section>
   );
 }

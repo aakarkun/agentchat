@@ -38,27 +38,29 @@ export function Navigation() {
               <span className="font-mono text-brand-amber text-lg">^_</span>
             </button>
 
-            {/* Nav Links */}
+            {/* Nav Links: Product → chat (Try now), Docs → Mintlify, Pricing → pricing, Contact → contact */}
             <div className="hidden md:flex items-center gap-8">
-              <button 
+              <button
                 onClick={() => scrollToSection('chat')}
                 className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors"
               >
                 Product
               </button>
-              <button 
-                onClick={() => scrollToSection('terminal')}
+              <a
+                href={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) || '#'}
+                target={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) ? '_blank' : undefined}
+                rel={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) ? 'noopener noreferrer' : undefined}
                 className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors"
               >
                 Docs
-              </button>
-              <button 
-                onClick={() => scrollToSection('api')}
+              </a>
+              <button
+                onClick={() => scrollToSection('pricing')}
                 className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors"
               >
                 Pricing
               </button>
-              <button 
+              <button
                 onClick={() => scrollToSection('contact')}
                 className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors"
               >
