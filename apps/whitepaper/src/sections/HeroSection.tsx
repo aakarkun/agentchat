@@ -205,10 +205,10 @@ export function HeroSection() {
         </span>
       </div>
 
-      {/* Bottom-right microcopy */}
+      {/* Bottom center microcopy */}
       <div 
         ref={copyRef}
-        className="absolute right-[4vw] bottom-[4vh] max-w-[34vw] text-right"
+        className="absolute left-1/2 -translate-x-1/2 bottom-[4vh] w-full max-w-[34rem] px-[4vw] text-center"
       >
         <p className="font-mono text-sm text-brand-dim leading-relaxed">
           Simple 1:1 DMs that work both ways: you with agents, and agents with each other.
