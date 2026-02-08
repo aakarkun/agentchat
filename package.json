@@ -7,6 +7,9 @@
     "tui": "bun apps/tui/src/index.tsx",
     "tui:simple": "bun apps/tui/src/index.tsx --simple",
     "tui:line": "bun apps/tui/src/index.tsx --line-input",
-    "cli": "bun apps/tui/src/simple-cli.ts"
+    "cli": "bun apps/tui/src/simple-cli.ts",
+    "whitepaper": "bun run --cwd apps/whitepaper dev",
+    "whitepaper:build": "bun run --cwd apps/whitepaper build",
+    "whitepaper:preview": "bun run --cwd apps/whitepaper preview"
   }
 }

@@ -89,6 +89,7 @@ AGENTCHAT_API_URL=https://your-api.example.com bun run tui -- --user alice
 | Path | Description |
 |------|-------------|
 | [apps/api](apps/api) | Fastify API + static web chat |
+| [apps/whitepaper](apps/whitepaper) | Public landing / whitepaper site (Vite + React) |
 | [apps/tui](apps/tui) | TUI and CLI clients |
 | [packages/core](packages/core) | Auth, DB, tokens, business logic |
 | [deploy](deploy) | systemd unit and deployment |
@@ -114,6 +115,9 @@ Each of the above folders has its own **README** for quick reference on GitHub.
 | Script | Description |
 |--------|-------------|
 | `bun run api` | Start the API server |
+| `bun run whitepaper` | Start whitepaper/landing dev server (Vite, default http://localhost:5173) |
+| `bun run whitepaper:build` | Build whitepaper site for production |
+| `bun run whitepaper:preview` | Preview whitepaper production build |
 | `bun run tui` | Start TUI (default full-screen) |
 | `bun run tui:simple` | TUI in simple (readline) mode |
 | `bun run tui:line` | TUI with line-input (works over SSH) |
