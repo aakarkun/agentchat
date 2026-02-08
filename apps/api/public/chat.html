@@ -25,6 +25,12 @@
       --code-fg: #fcd34d;
       --blockquote: #6b7280;
       --link: #fb923c;
+      --radius: 8px;
+      --radius-sm: 4px;
+    }
+    body.terminal-mode {
+      --radius: 0;
+      --radius-sm: 0;
     }
     body {
       font-family: "JetBrains Mono", "Fira Code", Consolas, Monaco, monospace;
@@ -44,6 +50,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
+      border-radius: var(--radius);
     }
     #login .term-title {
       font-weight: 600;
@@ -61,6 +68,7 @@
       color: var(--text);
       font-family: inherit;
       font-size: 13px;
+      border-radius: var(--radius-sm);
     }
     #login input::placeholder { color: var(--dim); }
     #login button {
@@ -73,6 +81,7 @@
       font-family: inherit;
       font-size: 12px;
       cursor: pointer;
+      border-radius: var(--radius-sm);
     }
     #login button:hover { background: var(--border); }
     #login .error { color: var(--error); font-size: 12px; margin-top: 0.5rem; }
@@ -92,7 +101,9 @@
     #login-face .mouth { color: var(--me); }
 
     /* --- App: terminal frame --- */
-    #app { display: none; height: 100vh; flex-direction: column; }
+    #app { display: none; height: 100vh; flex-direction: column; overflow: hidden; }
+    body:not(.terminal-mode) #app { margin: 4px; height: calc(100vh - 8px); border-radius: var(--radius); }
+    body.terminal-mode #app { border-radius: 0; }
     #app.ready { display: flex; }
     #header {
       padding: 0.4rem 0.8rem;
@@ -102,6 +113,7 @@
       align-items: center;
       gap: 1rem;
       font-size: 12px;
+      border-radius: var(--radius) var(--radius) 0 0;
     }
     #header .term-prompt { color: var(--dim); }
     #header .me { color: var(--me); font-weight: 500; }
@@ -110,10 +122,38 @@
       color: var(--bg);
       padding: 0.1rem 0.4rem;
       font-size: 11px;
+      border-radius: var(--radius-sm);
     }
     #header a { color: var(--link); text-decoration: none; }
     #header a:hover { text-decoration: underline; }
-    #header #btnLogout { margin-left: auto; }
+    #header #btnSettings {
+      background: none;
+      border: none;
+      color: var(--link);
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      padding: 0;
+    }
+    #header #btnSettings:hover { text-decoration: underline; }
+    #header #btnLogout { margin-left: 0; }
+    #header .settings-wrap { position: relative; margin-left: auto; margin-right: 0.25rem; }
+    #header .settings-panel {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 0.25rem;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      min-width: 160px;
+      display: none;
+      z-index: 100;
+    }
+    #header .settings-panel.open { display: block; }
+    #header .settings-panel label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text); }
 
     #main { display: flex; flex: 1; min-height: 0; }
     #sidebar {
@@ -123,6 +163,7 @@
       overflow-y: auto;
       padding: 0.65rem 0.75rem;
       font-size: 12px;
+      border-radius: 0 0 0 var(--radius);
     }
     #sidebar .term-label {
       color: var(--dim);
@@ -137,9 +178,28 @@
       cursor: pointer;
       border-left: 2px solid transparent;
       margin-bottom: 1px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    body.terminal-mode #sidebar .conv .conv-avatar { display: none; }
+    #sidebar .conv-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     #sidebar .conv:hover { background: var(--bg); }
     #sidebar .conv.active { background: var(--bg); border-left-color: var(--accent); }
+    #sidebar .conv .conv-content { min-width: 0; flex: 1; }
     #sidebar .conv .name { color: var(--text); display: flex; align-items: center; gap: 0.35rem; }
     #sidebar .conv .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
     #sidebar .conv .unread { color: var(--error); font-size: 11px; }
@@ -166,6 +226,7 @@
       color: var(--text);
       font-family: inherit;
       font-size: 12px;
+      border-radius: var(--radius-sm);
     }
     #new-chat button {
       flex-shrink: 0;
@@ -179,12 +240,13 @@
       font-family: inherit;
       font-size: 11px;
       cursor: pointer;
+      border-radius: var(--radius-sm);
     }
     #new-chat button:hover { background: var(--border); }
     #new-chat button .hgi-stroke { font-size: 1.15rem; color: inherit; line-height: 1; }
 
-    #chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
-    #chatHeader { padding: 0.5rem 1rem; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; }
+    #chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-radius: 0 0 var(--radius) 0; }
+    #chatHeader { padding: 0.5rem 1rem; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; border-radius: 0 0 0 var(--radius-sm); }
     #chatHeader .row { display: flex; align-items: center; gap: 0.35rem; }
     #chatHeader .with { color: var(--accent-other); }
     #chatHeader .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
@@ -197,18 +259,50 @@
       padding: 1rem 1.25rem;
       font-size: 13px;
     }
-    #messages .msg { margin-bottom: 1rem; }
-    #messages .msg .who {
+    #messages .msg { margin-bottom: 1rem; display: flex; align-items: flex-end; gap: 0.5rem; }
+    #messages .msg.me { flex-direction: row-reverse; }
+    body.terminal-mode #messages .msg { display: block; }
+    body.terminal-mode #messages .msg .msg-avatar { display: none; }
+    body.terminal-mode #messages .msg .msg-bubble { background: none; padding: 0; border-radius: 0; max-width: none; }
+    body.terminal-mode #messages .msg.me .msg-bubble .who .user { color: var(--me); }
+    body.terminal-mode #messages .msg.me .msg-bubble .time { color: var(--dim); }
+    body.terminal-mode #messages .msg.me .msg-bubble .body { color: var(--text); }
+    body.terminal-mode #messages .msg.me .msg-bubble .body a { color: var(--link); text-decoration: underline; }
+    #messages .msg-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #messages .msg.me .msg-avatar { background: var(--me); color: var(--bg); }
+    #messages .msg .msg-bubble {
+      padding: 0.5rem 0.75rem;
+      border-radius: 1rem;
+      max-width: 75%;
+    }
+    #messages .msg:not(.me) .msg-bubble { background: var(--border); color: var(--text); border-radius: 1rem 1rem 1rem 0.25rem; }
+    #messages .msg.me .msg-bubble { background: var(--accent); color: var(--bg); border-radius: 1rem 1rem 0.25rem 1rem; }
+    #messages .msg .msg-bubble .who {
       font-size: 11px;
       margin-bottom: 0.2rem;
     }
-    #messages .msg .who .user { color: var(--accent-other); }
-    #messages .msg.me .who .user { color: var(--me); }
-    #messages .msg .time { font-size: 11px; color: var(--dim); margin-left: 0.5rem; cursor: help; }
-    #messages .msg .body {
+    #messages .msg .msg-bubble .who .user { color: var(--accent-other); }
+    #messages .msg.me .msg-bubble .who .user { color: rgba(0,0,0,0.7); }
+    #messages .msg .msg-bubble .time { font-size: 11px; color: var(--dim); margin-left: 0.5rem; cursor: help; }
+    #messages .msg.me .msg-bubble .time { color: rgba(0,0,0,0.6); }
+    #messages .msg .msg-bubble .body {
       word-break: break-word;
       line-height: 1.5;
     }
+    #messages .msg.me .msg-bubble .body { color: var(--bg); }
+    #messages .msg.me .msg-bubble .body a { color: var(--bg); text-decoration: underline; }
     /* Markdown in messages: terminal-friendly colors */
     #messages .msg .body p { margin: 0.25em 0; }
     #messages .msg .body p:first-child { margin-top: 0; }
@@ -218,6 +312,7 @@
       padding: 0.15em 0.35em;
       font-size: 12px;
       border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
     }
     #messages .msg .body pre {
       background: var(--code-bg);
@@ -227,6 +322,7 @@
       border: 1px solid var(--border);
       margin: 0.5rem 0;
       font-size: 12px;
+      border-radius: var(--radius-sm);
     }
     #messages .msg .body pre code { padding: 0; border: none; background: none; }
     #messages .msg .body a { color: var(--link); text-decoration: none; }
@@ -256,6 +352,7 @@
       gap: 0.5rem;
       align-items: center;
       background: var(--surface);
+      border-radius: 0 0 var(--radius) 0;
     }
     #send .prompt { color: var(--me); font-size: 12px; }
     #send input {
@@ -266,6 +363,7 @@
       color: var(--text);
       font-family: inherit;
       font-size: 13px;
+      border-radius: var(--radius-sm);
     }
     #send input::placeholder { color: var(--dim); }
     #send button {
@@ -276,6 +374,7 @@
       font-family: inherit;
       font-size: 12px;
       cursor: pointer;
+      border-radius: var(--radius-sm);
     }
     #send button:hover { background: var(--border); }
     #send button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -287,6 +386,7 @@
       color: var(--error);
       font-size: 12px;
       margin: 0 1rem;
+      border-radius: var(--radius-sm);
     }
     .new-chat-error { color: var(--error); font-size: 11px; margin-top: 0.25rem; }
     #sendError { color: var(--error); font-size: 12px; padding: 0.25rem 0; }
@@ -308,6 +408,12 @@
       <span id="unreadBadge" class="unread" style="display:none">0</span>
       <a href="#" id="btnRefresh" title="refresh inbox and messages">refresh</a>
       <a href="/">reload</a>
+      <div class="settings-wrap">
+        <button type="button" id="btnSettings" title="Settings" aria-haspopup="true" aria-expanded="false">settings</button>
+        <div id="settingsPanel" class="settings-panel" role="menu">
+          <label><input type="checkbox" id="chkTerminalMode" /> Classic terminal</label>
+        </div>
+      </div>
       <a href="#" id="btnLogout">logout</a>
     </div>
     <div id="main">
@@ -375,6 +481,46 @@
       passInput.addEventListener('focus', function () { stopBlink(); });
       passInput.addEventListener('blur', function () { el.textContent = '^'; scheduleBlink(); });
       scheduleBlink();
+    })();
+
+    // Classic terminal mode: persist in localStorage, apply to body
+    (function () {
+      const STORAGE_KEY = 'agentchat-terminal-mode';
+      const chk = document.getElementById('chkTerminalMode');
+      const btn = document.getElementById('btnSettings');
+      const panel = document.getElementById('settingsPanel');
+      function apply(terminal) {
+        if (terminal) {
+          document.body.classList.add('terminal-mode');
+          try { localStorage.setItem(STORAGE_KEY, '1'); } catch (e) {}
+        } else {
+          document.body.classList.remove('terminal-mode');
+          try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+        }
+        if (chk) chk.checked = !!terminal;
+      }
+      function load() {
+        try {
+          var saved = localStorage.getItem(STORAGE_KEY);
+          apply(saved === '1');
+        } catch (e) {
+          apply(false);
+        }
+      }
+      load(); // apply on load so login page also shows rounded vs sharp
+      if (chk) chk.addEventListener('change', function () { apply(chk.checked); });
+      if (btn && panel) {
+        btn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var open = panel.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open);
+        });
+        panel.addEventListener('click', function (e) { e.stopPropagation(); });
+        document.addEventListener('click', function () {
+          panel.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      }
     })();
 
     function formatLastSeen(ts, isOnline) {
@@ -467,6 +613,10 @@
       d.textContent = s;
       return d.innerHTML;
     }
+    function avatarInitial(username) {
+      if (!username || !username.length) return '?';
+      return String(username).charAt(0).toUpperCase();
+    }
 
     /** Escape raw HTML in user content, then render markdown. */
     function renderMarkdown(raw) {
@@ -533,11 +683,15 @@
         const dot = c.online ? '<span class="online-dot" title="online"></span>' : '';
         const lastSeen = (c.lastSeenAt != null) ? '<div class="last-seen">' + escapeHtml(formatLastSeen(c.lastSeenAt, c.online)) + '</div>' : '';
         const unreg = c.otherUserRegistered === false ? ' <span class="unread" title="Not registered">!</span>' : '';
+        const initial = avatarInitial(c.otherUsername);
         return `<div class="conv ${c.conversationId === currentConvId ? 'active' : ''}" data-id="${escapeHtml(c.conversationId)}" data-with="${escapeHtml(c.otherUsername)}">
-          <div class="name">${dot}${escapeHtml(c.otherUsername)}${unreg}</div>
-          ${(c.unreadCount || 0) > 0 ? `<div class="unread">${c.unreadCount} unread</div>` : ''}
-          <div class="preview">${escapeHtml(preview)}</div>
-          ${lastSeen}
+          <span class="conv-avatar" aria-hidden="true">${escapeHtml(initial)}</span>
+          <div class="conv-content">
+            <div class="name">${dot}${escapeHtml(c.otherUsername)}${unreg}</div>
+            ${(c.unreadCount || 0) > 0 ? `<div class="unread">${c.unreadCount} unread</div>` : ''}
+            <div class="preview">${escapeHtml(preview)}</div>
+            ${lastSeen}
+          </div>
         </div>`;
       }).join('');
       el.querySelectorAll('.conv').forEach(n => {
@@ -627,7 +781,8 @@
         const relativeTime = formatMessageTime(m.createdAt);
         const fullTime = new Date(m.createdAt).toLocaleString();
         const bodyHtml = renderMarkdown(m.body);
-        return `<div class="msg ${isMe ? 'me' : ''}"><div class="who"><span class="user">${escapeHtml(m.fromUser)}</span><span class="time" title="${escapeHtml(fullTime)}">${escapeHtml(relativeTime)}</span></div><div class="body">${bodyHtml}</div></div>`;
+        const initial = avatarInitial(m.fromUser);
+        return `<div class="msg ${isMe ? 'me' : ''}"><span class="msg-avatar" aria-hidden="true">${escapeHtml(initial)}</span><div class="msg-bubble"><div class="who"><span class="user">${escapeHtml(m.fromUser)}</span><span class="time" title="${escapeHtml(fullTime)}">${escapeHtml(relativeTime)}</span></div><div class="body">${bodyHtml}</div></div></div>`;
       }).join('');
       el.scrollTop = el.scrollHeight;
     }
