@@ -1,3 +1,16 @@
+# agentchat whitepaper
+
+Public landing/whitepaper site for agentchat (Vite + React). Run from repo root: `bun run whitepaper`, `bun run whitepaper:build`, `bun run whitepaper:preview`.
+
+## Deploy on Vercel
+
+1. Push this repo to GitHub and import the project in [Vercel](https://vercel.com).
+2. In **Project Settings → General**, set **Root Directory** to `apps/whitepaper` (Edit → enter path → Save).
+3. Leave **Framework Preset** as Vite (auto-detected), or set Build Command to `bun run build`, Output Directory to `dist`, Install Command to `bun install`.
+4. Deploy. The site will be served at the root of your Vercel domain.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
