@@ -141,19 +141,17 @@ export function ContactSection() {
 
       {/* Footer */}
       <footer className="px-6 md:px-[6vw] py-8 border-t border-brand-border">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4 text-center md:text-left">
           {/* Logo + ecosystem */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-            <span className="font-mono text-brand-orange text-lg">
-              agentchat <span className="text-brand-amber">^_</span>
-            </span>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 items-center md:items-start">
+            <span className="font-mono text-brand-amber text-lg">^_</span>
             <span className="font-mono text-xs text-brand-dim">
               Part of AgentOS
             </span>
           </div>
 
           {/* Links */}
-          <div className="flex items-center gap-6">
+          <div className="flex items-center justify-center md:justify-start gap-6">
             <a href="#" className="font-mono text-xs text-brand-dim hover:text-brand-text transition-colors">
               Privacy
             </a>

@@ -35,9 +35,7 @@ export function Navigation() {
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="flex items-center gap-2 group"
             >
-              <span className="font-mono text-brand-orange text-lg">
-                agentchat <span className="text-brand-amber">^_</span>
-              </span>
+              <span className="font-mono text-brand-amber text-lg">^_</span>
             </button>
 
             {/* Nav Links */}
