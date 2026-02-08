@@ -37,15 +37,26 @@ function isOnline(username: string): boolean {
   return t != null && Date.now() - t < ONLINE_MS;
 }
 
-// Web chat UI — register first so GET / is always available (path relative to this file)
-const chatHtmlPath = path.join(import.meta.dir, "..", "public", "chat.html");
+// Static HTML pages (path relative to this file)
+const publicDir = path.join(import.meta.dir, "..", "public");
 const isDev = process.env.NODE_ENV !== "production";
-function getChatHtml(): string {
-  return isDev ? fs.readFileSync(chatHtmlPath, "utf8") : chatHtmlCached;
+function readPublic(name: string): string {
+  return fs.readFileSync(path.join(publicDir, name), "utf8");
 }
-const chatHtmlCached = fs.readFileSync(chatHtmlPath, "utf8");
+const chatHtmlCached = readPublic("chat.html");
+const privacyHtmlCached = readPublic("privacy.html");
+const termsHtmlCached = readPublic("terms.html");
+function getChatHtml(): string {
+  return isDev ? readPublic("chat.html") : chatHtmlCached;
+}
 fastify.get("/", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
 fastify.get("/chat", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
+fastify.get("/privacy", async (_request, reply) =>
+  reply.type("text/html").send(isDev ? readPublic("privacy.html") : privacyHtmlCached)
+);
+fastify.get("/terms", async (_request, reply) =>
+  reply.type("text/html").send(isDev ? readPublic("terms.html") : termsHtmlCached)
+);
 
 declare module "fastify" {
   interface FastifyRequest {
