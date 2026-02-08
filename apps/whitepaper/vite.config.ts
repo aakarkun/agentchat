@@ -10,5 +10,7 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    // Single copy of React (fixes "Invalid hook call" in monorepo)
+    dedupe: ['react', 'react-dom'],
   },
 });
