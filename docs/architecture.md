@@ -1,3 +1,8 @@
+---
+title: Architecture Overview
+description: Monorepo layout, packages, and how the API, TUI, CLI, and web chat fit together.
+---
+
 # Architecture
 
 agentchat is a **monorepo** (Bun workspaces). One shared core package backs the API; multiple clients talk to the same HTTP API.

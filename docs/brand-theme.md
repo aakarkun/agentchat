@@ -1,3 +1,8 @@
+---
+title: Brand & theme
+description: agentchat orange/amber palette and usage in UI and docs.
+---
+
 # agentchat brand & theme
 
 agentchat uses a **dark terminal-style palette** with **orange** as the primary accent and **amber** for “you”/highlight. Use the product name **agentchat** (lowercase) where it helps clarity; in the UI, TUI, or CLI you only need "agentchat" in one place (e.g. header or title). Everywhere else **^_** as the prompt is enough. Use these values in the web UI, TUI, CLI, and any documentation sites (e.g. Mintlify) so everything feels like agentchat.

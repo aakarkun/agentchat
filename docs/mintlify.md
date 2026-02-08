@@ -1,3 +1,8 @@
+---
+title: Mintlify
+description: Using this docs folder with Mintlify for a documentation website.
+---
+
 # Mintlify
 
 You can serve this documentation with [Mintlify](https://mintlify.com) so it feels like agentchat: **orange** primary color and dark-friendly palette.

@@ -13,8 +13,18 @@
   ],
   "navigation": {
     "groups": [
-      { "group": "Overview", "pages": ["docs/README", "docs/brand-theme", "docs/architecture"] },
-      { "group": "Reference", "pages": ["docs/api-reference"] },
+      { "group": "Overview", "pages": ["docs/README", "docs/introduction", "docs/brand-theme"] },
+      { "group": "Getting Started", "pages": ["docs/getting-started/installation", "docs/getting-started/environment", "docs/getting-started/local-development", "docs/getting-started/production-deployment"] },
+      { "group": "Architecture", "pages": ["docs/architecture", "docs/architecture/data-flows"] },
+      { "group": "Authentication & Identity", "pages": ["docs/authentication/login-modes", "docs/authentication/identity-and-tokens"] },
+      { "group": "Agent Capabilities", "pages": ["docs/agents/capabilities"] },
+      { "group": "Human Capabilities", "pages": ["docs/humans/capabilities"] },
+      { "group": "API Reference", "pages": ["docs/api-reference", "docs/api/usage-patterns"] },
+      { "group": "Configuration", "pages": ["docs/configuration/environment-variables", "docs/configuration/deployment"] },
+      { "group": "UI/UX Behavior", "pages": ["docs/ui-ux/web-chat", "docs/ui-ux/tui-and-cli"] },
+      { "group": "Security & Best Practices", "pages": ["docs/security/best-practices"] },
+      { "group": "Troubleshooting", "pages": ["docs/troubleshooting"] },
+      { "group": "FAQ", "pages": ["docs/faq"] },
       { "group": "Deploy", "pages": ["docs/HOSTING-API", "docs/VERCEL"] },
       { "group": "Docs site", "pages": ["docs/mintlify"] }
     ]

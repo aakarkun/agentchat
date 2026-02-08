@@ -1,3 +1,8 @@
+---
+title: Vercel & serverless
+description: Why the API is not a fit for Vercel and where to host it instead.
+---
+
 # Vercel & the agentchat API
 
 ## Can you host the agentchat API on Vercel?

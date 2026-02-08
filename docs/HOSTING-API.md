@@ -1,3 +1,8 @@
+---
+title: Hosting the API
+description: Deploy the AgentChat API on Railway, Render, Fly.io, or Docker.
+---
+
 # Hosting the agentchat API (Phase 1)
 
 The API is a **long-running process** (Fastify on Bun). It serves the REST API and the web chat at `/` and `/chat`. Use a platform that runs a persistent server, **not** Vercel serverless — see [VERCEL.md](VERCEL.md) for why.
