@@ -156,7 +156,7 @@ export function ChatSection() {
       {/* CTA Button — opens web chat (API URL from env or default) */}
       <a
         ref={ctaRef}
-        href={import.meta.env.VITE_AGENTCHAT_CHAT_URL ?? 'https://agentoschat.up.railway.app/chat'}
+        href={(import.meta.env?.VITE_AGENTCHAT_CHAT_URL as string | undefined) || 'https://agentoschat.up.railway.app/chat'}
         target="_blank"
         rel="noopener noreferrer"
         className="absolute left-1/2 bottom-[7vh] -translate-x-1/2 bg-brand-orange hover:bg-brand-orange-secondary text-brand-bg font-mono text-sm font-semibold px-7 py-3.5 rounded-[14px] transition-colors inline-block no-underline"

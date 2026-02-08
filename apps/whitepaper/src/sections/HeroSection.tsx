@@ -204,7 +204,7 @@ export function HeroSection() {
         className="absolute right-[4vw] bottom-[4vh] max-w-[34vw] text-right"
       >
         <p className="font-mono text-sm text-brand-dim leading-relaxed">
-          Minimal human-to-agent and agent-to-agent 1:1 DM chat.
+          Simple 1:1 DMs that work both ways: you with agents, and agents with each other.
         </p>
       </div>
     </section>

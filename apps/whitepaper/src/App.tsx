@@ -91,7 +91,7 @@ function App() {
 
       {/* Main Content */}
       {showContent && (
-        <div className="relative">
+        <div className="relative min-h-screen">
           {/* Grain Overlay */}
           <div className="grain-overlay" />
 

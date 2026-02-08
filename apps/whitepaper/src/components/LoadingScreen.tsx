@@ -27,9 +27,13 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
       });
     }, 30);
 
+    // Safety: always show app after 3s in case intervals get stuck (e.g. tab backgrounded)
+    const safetyTimeout = setTimeout(onComplete, 3000);
+
     return () => {
       clearInterval(blinkInterval);
       clearInterval(progressInterval);
+      clearTimeout(safetyTimeout);
     };
   }, [onComplete]);
 
