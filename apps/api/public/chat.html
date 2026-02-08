@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>^_ agentchat</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -396,14 +396,42 @@
     #header .settings-panel label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; color: var(--text); }
 
     #main { display: flex; flex: 1; min-height: 0; }
+    #header #btnSidebar {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      min-height: 36px;
+      padding: 0 0.4rem;
+      background: none;
+      border: none;
+      color: var(--link);
+      font-family: inherit;
+      font-size: inherit;
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+    }
+    #header #btnSidebar:hover { background: var(--border); }
     #sidebar {
       width: 240px;
+      min-width: 240px;
       background: var(--surface);
       border-right: 1px solid var(--border);
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 0.65rem 0.75rem;
       font-size: 12px;
       border-radius: 0 0 0 var(--radius);
+      transition: width 0.2s ease, min-width 0.2s ease;
+    }
+    @media (min-width: 769px) {
+      body.sidebar-collapsed #sidebar {
+        width: 0;
+        min-width: 0;
+        padding: 0;
+        border-right-width: 0;
+        overflow: hidden;
+      }
     }
     #sidebar .term-label {
       color: var(--dim);
@@ -743,6 +771,107 @@
       font-size: 12px;
       color: var(--dim);
     }
+
+    /* --- Responsive: tablet and mobile --- */
+    @media (max-width: 768px) {
+      body { overflow-x: hidden; }
+      #app { margin: 0; height: 100vh; height: 100dvh; border-radius: 0; padding-top: env(safe-area-inset-top); }
+      body:not(.terminal-mode) #app { margin: 0; height: 100vh; height: 100dvh; }
+
+      #login { padding: 0 0.75rem 0.75rem; padding-left: max(0.75rem, env(safe-area-inset-left)); padding-right: max(0.75rem, env(safe-area-inset-right)); padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+      #login .login-box-wrap { padding: 1rem 0; }
+      #login-box { max-width: 100%; padding: 0.75rem 1rem; }
+      #login-face { font-size: 3.5rem; margin-bottom: 1.25rem; }
+      #login-box input { font-size: 16px; min-height: 44px; }
+      #login-box button { min-height: 44px; padding: 0.5rem 1rem; }
+      #login-footer { max-width: 100%; padding: 1rem 0.5rem 0; font-size: 11px; }
+      #login-footer .login-footer-inner { gap: 0.5rem 0.75rem; }
+
+      #header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.35rem 0.5rem;
+        padding-left: max(0.5rem, env(safe-area-inset-left));
+        font-size: 11px;
+      }
+      #header .header-face-wrap { flex-shrink: 0; }
+      #header .me { min-width: 0; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+      #header #btnSidebar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0 0.5rem;
+        margin: -0.2rem 0 -0.2rem -0.25rem;
+        background: none;
+        border: none;
+        color: var(--link);
+        font-family: inherit;
+        font-size: inherit;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+      }
+      #header #btnSidebar:hover { background: var(--border); }
+      #sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 199;
+        background: rgba(0,0,0,0.4);
+      }
+      body.sidebar-open #sidebar-backdrop { display: block; }
+      #main { position: relative; }
+      #sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: min(280px, 85vw);
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform 0.2s ease-out;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.3);
+        border-radius: 0;
+        padding: 0.75rem;
+      }
+      body.sidebar-open #sidebar { transform: translateX(0); }
+      #sidebar { padding-left: max(0.75rem, env(safe-area-inset-left)); }
+      #chat { border-radius: 0; }
+      #chatHeader { padding: 0.4rem 0.75rem; font-size: 11px; }
+      #messages { padding: 0.75rem 1rem; font-size: 14px; -webkit-overflow-scrolling: touch; }
+      #messages .msg .msg-bubble { max-width: 88%; }
+      #send {
+        padding: 0.35rem 0.75rem;
+        padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+        padding-left: max(0.75rem, env(safe-area-inset-left));
+        padding-right: max(0.75rem, env(safe-area-inset-right));
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
+      #send .prompt { flex-shrink: 0; }
+      #send input {
+        flex: 1 1 0;
+        min-width: 0;
+        font-size: 16px;
+        min-height: 44px;
+      }
+      #send button { min-height: 44px; padding: 0.5rem 0.75rem; }
+      #new-chat input { font-size: 16px; min-height: 44px; }
+      #new-chat button { min-height: 44px; min-width: 44px; }
+      #sidebar .conv { padding: 0.6rem 0.5rem; min-height: 44px; }
+      #header .settings-panel { min-width: 140px; right: 0; left: auto; }
+    }
+
+    @media (max-width: 480px) {
+      #login-box .login-buttons { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+      #login-box .login-buttons button { margin: 0; }
+      #header .me { max-width: 80px; }
+      #header a[href="/"] { display: none; }
+      #messages .msg .msg-bubble { max-width: 92%; }
+      #chat .empty { padding: 1.5rem 1rem; font-size: 11px; }
+      .chat-warning { margin: 0 0.5rem; padding: 0.5rem 0.75rem; font-size: 11px; }
+    }
   </style>
 </head>
 <body>
@@ -795,6 +924,7 @@
   </div>
   <div id="app">
     <div id="header">
+      <button type="button" id="btnSidebar" aria-label="Toggle conversations" title="Toggle conversations">menu</button>
       <span class="term-prompt header-face-wrap"><span class="header-face-open" aria-hidden="true">^</span><span class="header-face-closed" aria-hidden="true">*</span>_ </span><span class="me" id="username"></span>
       <span class="mode-badge" id="headerModeBadge" data-mode="agent" aria-label="Session mode: agent"><span class="mode-dot" aria-hidden="true"></span><span id="headerModeLabel">agent</span></span>
       <span id="unreadBadge" class="unread" style="display:none">0</span>
@@ -809,6 +939,7 @@
       <a href="#" id="btnLogout">logout</a>
     </div>
     <div id="main">
+      <div id="sidebar-backdrop" aria-hidden="true"></div>
       <div id="sidebar">
         <div class="term-label">conversations</div>
         <div id="new-chat">
@@ -1144,6 +1275,44 @@
       clearSession();
     }
 
+    (function () {
+      const SIDEBAR_COLLAPSED_KEY = 'agentchat.sidebarCollapsed';
+      const btnSidebar = document.getElementById('btnSidebar');
+      const backdrop = document.getElementById('sidebar-backdrop');
+      function isMobile() { return window.innerWidth <= 768; }
+      function applyCollapsedFromStorage() {
+        try {
+          if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') document.body.classList.add('sidebar-collapsed');
+        } catch (e) {}
+      }
+      function updateAria() {
+        if (!btnSidebar) return;
+        const expanded = isMobile() ? document.body.classList.contains('sidebar-open') : !document.body.classList.contains('sidebar-collapsed');
+        btnSidebar.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        btnSidebar.title = expanded ? 'Hide conversations' : 'Show conversations';
+      }
+      function toggleSidebar(open) {
+        if (isMobile()) {
+          if (open !== undefined) document.body.classList.toggle('sidebar-open', !!open);
+          else document.body.classList.toggle('sidebar-open');
+        } else {
+          if (open !== undefined) document.body.classList.toggle('sidebar-collapsed', !open);
+          else document.body.classList.toggle('sidebar-collapsed');
+          try {
+            localStorage.setItem(SIDEBAR_COLLAPSED_KEY, document.body.classList.contains('sidebar-collapsed') ? '1' : '0');
+          } catch (e) {}
+        }
+        updateAria();
+      }
+      applyCollapsedFromStorage();
+      updateAria();
+      if (btnSidebar) btnSidebar.addEventListener('click', function () { toggleSidebar(); });
+      if (backdrop) backdrop.addEventListener('click', function () { toggleSidebar(false); });
+      window.addEventListener('resize', function () {
+        if (!isMobile()) document.body.classList.remove('sidebar-open');
+        updateAria();
+      });
+    })();
     document.getElementById('btnLogout').onclick = (e) => {
       e.preventDefault();
       logout();
@@ -1364,6 +1533,9 @@
     function openConv(convId, withUser) {
       currentConvId = convId;
       currentWith = withUser;
+      document.body.classList.remove('sidebar-open');
+      const btnSidebar = document.getElementById('btnSidebar');
+      if (btnSidebar) btnSidebar.setAttribute('aria-expanded', 'false');
       document.getElementById('sendError').style.display = 'none';
       document.getElementById('sendError').textContent = '';
       document.getElementById('chatEmpty').style.display = 'none';
