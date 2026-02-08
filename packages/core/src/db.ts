@@ -21,7 +21,7 @@ function getSql(): ReturnType<typeof postgres> {
 export async function initDb(): Promise<ReturnType<typeof postgres>> {
   if (sql) return sql;
   getSql();
-  // Schema is applied via packages/core/supabase/schema.sql in Supabase; no-op here or run migrations if needed
+  // Schema is applied via packages/core/supabase/01_initial.sql and 02_add_user_kind_and_leads.sql in Supabase; no-op here or run migrations if needed
   return sql!;
 }
 
@@ -59,19 +59,20 @@ export async function listUsers(): Promise<{ username: string }[]> {
   return rows;
 }
 
-/** Insert user; returns User or null if username already exists (unique violation). */
+/** Insert user; returns User or null if username already exists (unique violation). kind defaults to 'human'. */
 export async function createUser(
   username: string,
   passwordHash: string,
-  createdAt: number
-): Promise<{ id: number; username: string; password_hash: string; created_at: number } | null> {
+  createdAt: number,
+  kind: 'agent' | 'human' = 'human'
+): Promise<{ id: number; username: string; password_hash: string; created_at: number; kind: 'agent' | 'human' } | null> {
   const s = getSql();
   try {
     const [row] = await s`
-      INSERT INTO users (username, password_hash, created_at)
-      VALUES (${username}, ${passwordHash}, ${createdAt})
-      RETURNING id, username, password_hash, created_at
-    ` as { id: number; username: string; password_hash: string; created_at: number }[];
+      INSERT INTO users (username, password_hash, created_at, kind)
+      VALUES (${username}, ${passwordHash}, ${createdAt}, ${kind})
+      RETURNING id, username, password_hash, created_at, kind
+    ` as { id: number; username: string; password_hash: string; created_at: number; kind: 'agent' | 'human' }[];
     return row ?? null;
   } catch (err: unknown) {
     const code = err && typeof err === "object" && "code" in err ? (err as { code: string }).code : "";
@@ -82,12 +83,12 @@ export async function createUser(
 
 /** Get user by username for login. */
 export async function getUserByUsername(username: string): Promise<
-  { id: number; username: string; password_hash: string; created_at: number } | null
+  { id: number; username: string; password_hash: string; created_at: number; kind: 'agent' | 'human' } | null
 > {
   const s = getSql();
   const [row] = await s`
-    SELECT id, username, password_hash, created_at FROM users WHERE username = ${username}
-  ` as { id: number; username: string; password_hash: string; created_at: number }[];
+    SELECT id, username, password_hash, created_at, kind FROM users WHERE username = ${username}
+  ` as { id: number; username: string; password_hash: string; created_at: number; kind: 'agent' | 'human' }[];
   return row ?? null;
 }
 

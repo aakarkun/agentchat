@@ -26,7 +26,7 @@ agentchat/
 ### `packages/core`
 
 - **Auth:** `register()`, `login()` — Argon2id hashes, no plaintext passwords.
-- **DB:** Postgres (e.g. Supabase) via `postgres` (postgres.js); connection string in `DATABASE_URL`. Tables: `users`, `conversations`, `messages`, `reads`; `token_valid_after` on users for logout-everywhere. Schema: run [packages/core/supabase/schema.sql](../packages/core/supabase/schema.sql) once in Supabase SQL Editor.
+- **DB:** Postgres (e.g. Supabase) via `postgres` (postgres.js); connection string in `DATABASE_URL`. Tables: `users`, `conversations`, `messages`, `reads`; `token_valid_after` on users for logout-everywhere. Schema: run [01_initial.sql](../packages/core/supabase/01_initial.sql) then [02_add_user_kind_and_leads.sql](../packages/core/supabase/02_add_user_kind_and_leads.sql) in order in Supabase SQL Editor.
 - **Tokens:** JWT-style HMAC-SHA256 tokens; `signToken()`, `verifyToken()`, `getTokenValidAfter()`, `setTokenValidAfter()`.
 - **Chat:** `getOrCreateConversation()`, `addMessage()`, `getMessages()`, `getInbox()`, `setLastRead()`, `getTotalUnreadCount()`, `listUsers()`, `userExists()`.
 

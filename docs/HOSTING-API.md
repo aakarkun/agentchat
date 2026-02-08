@@ -6,7 +6,7 @@ The API is a **long-running process** (Fastify on Bun). It serves the REST API a
 
 ## Prerequisites
 
-- **Postgres database** — e.g. [Supabase](https://supabase.com): create a project, run `packages/core/supabase/schema.sql` in the SQL Editor, then copy the **connection string** (URI). For serverless-friendly pooling you can use the **pooler** endpoint (port 6543).
+- **Postgres database** — e.g. [Supabase](https://supabase.com): create a project, run `packages/core/supabase/01_initial.sql` then `02_add_user_kind_and_leads.sql` in the SQL Editor (in order), then copy the **connection string** (URI). For serverless-friendly pooling you can use the **pooler** endpoint (port 6543).
 - **Environment variables** you’ll set on the host:
   - `DATABASE_URL` — Postgres connection string (required).
   - `AGENTCHAT_TOKEN_SECRET` — JWT signing secret (required in production).

@@ -1,4 +1,4 @@
--- Run once in Supabase SQL Editor (Project → SQL Editor).
+-- Migration 01: Initial schema. Run first in Supabase SQL Editor.
 -- Same logical schema as SQLite; messages.body stores plaintext today.
 -- Future E2EE: body can store ciphertext; clients encrypt/decrypt; server stays agnostic.
 
@@ -35,18 +35,3 @@ CREATE TABLE IF NOT EXISTS reads (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id, id);
 CREATE INDEX IF NOT EXISTS idx_reads_username ON reads(username);
-
--- Whitepaper leads: waitlist (developer access queue) and subscribe (update emails). Run after main schema.
-CREATE TABLE IF NOT EXISTS waitlist (
-  id SERIAL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE TABLE IF NOT EXISTS subscribe (
-  id SERIAL PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_waitlist_created_at ON waitlist(created_at);
-CREATE INDEX IF NOT EXISTS idx_subscribe_created_at ON subscribe(created_at);
--- If tables already existed without UNIQUE, run: ALTER TABLE waitlist ADD CONSTRAINT waitlist_email_key UNIQUE (email); ALTER TABLE subscribe ADD CONSTRAINT subscribe_email_key UNIQUE (email);

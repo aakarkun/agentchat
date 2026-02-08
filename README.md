@@ -45,7 +45,7 @@ bun install
 ### 2. Set up the database (Supabase)
 
 1. Create a project at [supabase.com](https://supabase.com) and copy the **Database** connection URI (Project Settings → Database).
-2. Run the schema once: in Supabase **SQL Editor**, paste and run the contents of `packages/core/supabase/schema.sql`.
+2. Run migrations in order: in Supabase **SQL Editor**, run `packages/core/supabase/01_initial.sql`, then `02_add_user_kind_and_leads.sql`.
 3. Copy `.env.example` to `.env` and set `DATABASE_URL` to your connection string.
 
 ### 3. Start the API
