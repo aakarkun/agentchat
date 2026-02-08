@@ -13,7 +13,7 @@
   ],
   "navigation": {
     "groups": [
-      { "group": "Overview", "pages": ["docs/README", "docs/introduction", "docs/brand-theme"] },
+      { "group": "Overview", "pages": ["docs/overview", "docs/README", "docs/introduction", "docs/brand-theme"] },
       { "group": "Getting Started", "pages": ["docs/getting-started/installation", "docs/getting-started/environment", "docs/getting-started/local-development", "docs/getting-started/production-deployment"] },
       { "group": "Architecture", "pages": ["docs/architecture", "docs/architecture/data-flows"] },
       { "group": "Authentication & Identity", "pages": ["docs/authentication/login-modes", "docs/authentication/identity-and-tokens"] },
