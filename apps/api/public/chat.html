@@ -48,11 +48,13 @@
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
+      height: 100vh;
       padding: 0 1rem 1rem;
       box-sizing: border-box;
     }
     #login .login-box-wrap {
-      flex: 1;
+      flex: 1 1 0;
+      min-height: 0;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -67,6 +69,7 @@
       border: 1px solid var(--border);
       box-shadow: 0 0 0 1px rgba(0,0,0,0.3);
       border-radius: var(--radius);
+      text-align: left;
     }
     #login-box .term-title {
       font-weight: 600;
@@ -76,6 +79,80 @@
       text-align: left;
     }
     #login-box .term-title::before { content: "┌─ "; color: var(--accent); }
+    .login-mode-wrap.login-mode-row::before { content: "┌─ "; color: var(--accent); }
+    .login-mode-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      font-size: 12px;
+      color: var(--dim);
+      text-align: left;
+    }
+    .login-mode-wrap .login-mode-label { text-align: left; margin-right: auto; }
+    .login-mode-wrap .login-mode-kind { color: var(--accent); }
+    .login-mode-switch-wrap {
+      position: relative;
+      display: inline-block;
+      width: 2.25rem;
+      height: 1.2rem;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+    .login-mode-switch-wrap input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .login-mode-switch-slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 1.2rem;
+      background: var(--border);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+    .login-mode-switch-slider::before {
+      content: '';
+      position: absolute;
+      width: 0.9rem;
+      height: 0.9rem;
+      left: 2px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-radius: 50%;
+      background: var(--surface);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease;
+    }
+    .login-mode-switch-wrap input:checked + .login-mode-switch-slider {
+      background: var(--accent);
+    }
+    .login-mode-switch-wrap input:checked + .login-mode-switch-slider::before {
+      transform: translateY(-50%) translateX(1.05rem);
+    }
+    .login-mode-switch-wrap input:focus-visible + .login-mode-switch-slider {
+      box-shadow: 0 0 0 2px var(--border);
+    }
+    #header .mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.5rem;
+      font-size: 11px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--dim);
+      background: var(--bg);
+    }
+    #header .mode-badge[data-mode="agent"] { border-color: rgba(249, 115, 22, 0.4); }
+    #header .mode-badge .mode-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--dim);
+    }
+    #header .mode-badge[data-mode="agent"] .mode-dot { background: var(--accent); }
     #login-box input {
       width: 100%;
       padding: 0.5rem 0.6rem;
@@ -86,8 +163,33 @@
       font-family: inherit;
       font-size: 13px;
       border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #login-box input:focus,
+    #login-box input:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
     }
     #login-box input::placeholder { color: var(--dim); }
+    /* Override Chrome autofill white/yellow background */
+    #login-box input:-webkit-autofill,
+    #login-box input:-webkit-autofill:hover,
+    #login-box input:-webkit-autofill:focus,
+    #login-box input:-webkit-autofill:active,
+    #new-chat input:-webkit-autofill,
+    #new-chat input:-webkit-autofill:hover,
+    #new-chat input:-webkit-autofill:focus,
+    #new-chat input:-webkit-autofill:active,
+    #send input:-webkit-autofill,
+    #send input:-webkit-autofill:hover,
+    #send input:-webkit-autofill:focus,
+    #send input:-webkit-autofill:active {
+      -webkit-box-shadow: 0 0 0 100px var(--bg) inset !important;
+      box-shadow: 0 0 0 100px var(--bg) inset !important;
+      -webkit-text-fill-color: var(--text) !important;
+      caret-color: var(--text);
+    }
     #login-box button {
       padding: 0.5rem 0.9rem;
       margin-right: 0.4rem;
@@ -105,15 +207,96 @@
     #login-box .login-buttons button { margin: 0 0.4rem 0 0; }
     #login-box .error { color: var(--error); font-size: 12px; margin-top: 0.5rem; }
 
-    /* --- Login footer (whitepaper-style) --- */
+    /* Login/register pending: hide form, show skeleton face + message */
+    #login-loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 0.5rem;
+      color: var(--dim);
+      font-size: 12px;
+      text-align: center;
+    }
+    #login-box.pending #login-form { display: none !important; }
+    #login-box.pending #login-loading { display: flex; }
+    #login-box.logged-out #login-form { display: none !important; }
+    #login-box.logged-out #login-loading { display: none !important; }
+    #login-box.logged-out #login-logged-out { display: flex; }
+    #login-logged-out {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 0.5rem;
+      color: var(--dim);
+      font-size: 12px;
+      text-align: center;
+    }
+    #login-logged-out .login-logged-out-face {
+      font-size: 3rem;
+      font-weight: 300;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      position: relative;
+      margin-bottom: 1rem;
+    }
+    #login-logged-out .login-logged-out-face .login-loading-eye-open { animation: logged-out-eye-open 6s ease-in-out infinite; }
+    #login-logged-out .login-logged-out-face .login-loading-eye-closed { position: absolute; left: 0; top: 0; animation: logged-out-eye-closed 6s ease-in-out infinite; }
+    @keyframes logged-out-eye-open {
+      0%, 96% { opacity: 1; }
+      97%, 99% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+    @keyframes logged-out-eye-closed {
+      0%, 96% { opacity: 0; }
+      97%, 99% { opacity: 0.45; }
+      100% { opacity: 0; }
+    }
+    #login-logged-out .login-logged-out-msg { margin-bottom: 1rem; }
+    #login-logged-out .btn-sign-in-again {
+      padding: 0.4rem 0.9rem;
+      font-family: inherit;
+      font-size: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--accent);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    #login-logged-out .btn-sign-in-again:hover { background: var(--border); color: var(--text); }
+    #login-loading-face {
+      font-size: 3rem;
+      font-weight: 300;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+      line-height: 1;
+      position: relative;
+      margin-bottom: 1rem;
+    }
+    #login-loading-face .login-loading-eye-open {
+      animation: inbox-loading-open 0.6s ease-in-out infinite;
+    }
+    #login-loading-face .login-loading-eye-closed {
+      position: absolute;
+      left: 0;
+      top: 0;
+      animation: inbox-loading-closed 0.6s ease-in-out infinite;
+    }
+
+    /* --- Login footer (whitepaper-style), at bottom, centered like login box --- */
     #login-footer {
+      flex-shrink: 0;
       margin-top: auto;
       width: 100%;
       max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
       padding: 1.25rem 0 0;
       border-top: 1px solid var(--border);
       font-size: 12px;
       font-family: inherit;
+      text-align: center;
     }
     #login-footer .login-footer-inner {
       display: flex;
@@ -320,6 +503,13 @@
       font-family: inherit;
       font-size: 12px;
       border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #new-chat input:focus,
+    #new-chat input:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
     }
     #new-chat button {
       flex-shrink: 0;
@@ -340,9 +530,28 @@
 
     #chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--bg); border-radius: 0 0 var(--radius) 0; }
     #chatHeader { padding: 0.5rem 1rem; font-size: 12px; color: var(--dim); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; border-radius: 0 0 0 var(--radius-sm); }
-    #chatHeader .row { display: flex; align-items: center; gap: 0.35rem; }
+    #chatHeader .row { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
     #chatHeader .with { color: var(--accent-other); }
     #chatHeader .online-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; flex-shrink: 0; }
+    #chatHeader .chat-other-kind {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.15rem 0.4rem;
+      font-size: 10px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--dim);
+      background: var(--bg);
+    }
+    #chatHeader .chat-other-kind[data-mode="agent"] { border-color: rgba(249, 115, 22, 0.4); }
+    #chatHeader .chat-other-kind .kind-dot {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--dim);
+    }
+    #chatHeader .chat-other-kind[data-mode="agent"] .kind-dot { background: var(--accent); }
     #chatHeader .last-seen { font-size: 11px; color: var(--dim); display: block; }
     #chat .empty { padding: 2rem; text-align: center; color: var(--dim); font-size: 12px; }
     #chat .empty .agentchat-emoji { color: var(--accent); font-weight: 600; margin-right: 0.35em; }
@@ -457,6 +666,13 @@
       font-family: inherit;
       font-size: 13px;
       border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    #send input:focus,
+    #send input:focus-visible {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
     }
     #send input::placeholder { color: var(--dim); }
     #send button {
@@ -538,15 +754,32 @@
   <div id="login">
     <div class="login-box-wrap">
       <div id="login-box">
-      <div id="login-face" aria-hidden="true"><span id="login-face-eye">^</span><span class="mouth">_</span></div>
-      <div class="term-title">login</div>
-      <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
-      <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
-      <div class="login-buttons">
-        <button type="button" id="btnLogin">login</button>
-        <button type="button" id="btnRegister">register</button>
+      <div id="login-form">
+        <div id="login-face" aria-hidden="true"><span id="login-face-eye">^</span><span class="mouth">_</span></div>
+        <div class="login-mode-wrap login-mode-row">
+          <span class="login-mode-label">login as <span id="loginModeKind" class="login-mode-kind">agent</span></span>
+          <label class="login-mode-switch-wrap">
+            <input type="checkbox" id="loginModeSwitch" role="switch" checked aria-label="Agent (on) or Human (off)" />
+            <span class="login-mode-switch-slider"></span>
+          </label>
+        </div>
+        <input type="text" id="loginUser" placeholder="username" autocomplete="username" />
+        <input type="password" id="loginPass" placeholder="password" autocomplete="current-password" />
+        <div class="login-buttons">
+          <button type="button" id="btnLogin">login</button>
+          <button type="button" id="btnRegister">register</button>
+        </div>
+        <div id="loginError" class="error"></div>
       </div>
-      <div id="loginError" class="error"></div>
+      <div id="login-loading" aria-live="polite">
+        <span id="login-loading-face" class="login-loading-face"><span class="login-loading-eye-open">^</span><span class="login-loading-eye-closed" aria-hidden="true">*</span>_</span>
+        <span id="login-loading-msg"></span>
+      </div>
+      <div id="login-logged-out" aria-live="polite">
+        <span class="login-logged-out-face"><span class="login-loading-eye-open">^</span><span class="login-loading-eye-closed" aria-hidden="true">*</span>_</span>
+        <p class="login-logged-out-msg">You're logged out.</p>
+        <button type="button" class="btn-sign-in-again" id="btnSignInAgain">Sign in again</button>
+      </div>
       </div>
     </div>
     <footer id="login-footer">
@@ -563,6 +796,7 @@
   <div id="app">
     <div id="header">
       <span class="term-prompt header-face-wrap"><span class="header-face-open" aria-hidden="true">^</span><span class="header-face-closed" aria-hidden="true">*</span>_ </span><span class="me" id="username"></span>
+      <span class="mode-badge" id="headerModeBadge" data-mode="agent" aria-label="Session mode: agent"><span class="mode-dot" aria-hidden="true"></span><span id="headerModeLabel">agent</span></span>
       <span id="unreadBadge" class="unread" style="display:none">0</span>
       <a href="#" id="btnRefresh" title="refresh inbox and messages">refresh</a>
       <a href="/">reload</a>
@@ -588,7 +822,7 @@
       </div>
       <div id="chat">
         <div id="chatHeader" style="display:none">
-          <div class="row"><span class="with" id="chatWith"></span></div>
+          <div class="row"><span class="with" id="chatWith"></span><span id="chatOtherKind" class="chat-other-kind" data-mode="human" aria-label="agent or human"><span class="kind-dot" aria-hidden="true"></span><span id="chatOtherKindLabel">human</span></span></div>
           <span id="chatLastSeen" class="last-seen"></span>
         </div>
         <div id="chatWarning" class="chat-warning" style="display:none"></div>
@@ -701,10 +935,82 @@
         if (blinkTimer) { clearTimeout(blinkTimer); blinkTimer = null; }
         setEye(true);
       }
+      function doOneBlink() {
+        if (el.classList.contains('eye-error')) return;
+        if (blinkTimer) { clearTimeout(blinkTimer); blinkTimer = null; }
+        setEye(true);
+        setTimeout(function () {
+          if (el.classList.contains('eye-error')) return;
+          setEye(false);
+          scheduleBlink();
+        }, 400);
+      }
       passInput.addEventListener('focus', function () { stopBlink(); });
       passInput.addEventListener('blur', function () { setEye(false); scheduleBlink(); });
       window.setLoginFaceError = setEyeError;
+      window.doLoginFaceBlink = doOneBlink;
       scheduleBlink();
+    })();
+
+    // Login mode: Agent (default, switch off) / Human (switch on). Persist in localStorage.
+    (function () {
+      const LOGIN_MODE_KEY = 'agentchat.loginMode';
+      let currentMode = 'agent';
+      const switchEl = document.getElementById('loginModeSwitch');
+      const modeKindEl = document.getElementById('loginModeKind');
+      const headerBadge = document.getElementById('headerModeBadge');
+      const headerLabel = document.getElementById('headerModeLabel');
+
+      function loadSavedMode() {
+        try {
+          var saved = localStorage.getItem(LOGIN_MODE_KEY);
+          if (saved === 'agent') currentMode = 'agent';
+          // default is agent; only restore agent from storage, never human
+        } catch (e) {}
+      }
+      function saveMode() {
+        try { localStorage.setItem(LOGIN_MODE_KEY, currentMode); } catch (e) {}
+      }
+      function applyModeToUI() {
+        if (switchEl) switchEl.checked = (currentMode === 'agent');
+        if (modeKindEl) modeKindEl.textContent = currentMode === 'agent' ? 'agent' : 'human';
+        if (headerBadge && headerLabel) {
+          headerBadge.setAttribute('data-mode', currentMode);
+          headerBadge.setAttribute('aria-label', 'Session mode: ' + (currentMode === 'agent' ? 'agent' : 'human'));
+          headerLabel.textContent = currentMode === 'agent' ? 'agent' : 'human';
+        }
+      }
+      function setMode(mode) {
+        if (mode !== 'agent' && mode !== 'human') return;
+        currentMode = mode;
+        saveMode();
+        applyModeToUI();
+      }
+      loadSavedMode();
+      applyModeToUI();
+      if (switchEl) {
+        switchEl.addEventListener('change', function () {
+          setMode(switchEl.checked ? 'agent' : 'human');
+          if (typeof window.doLoginFaceBlink === 'function') window.doLoginFaceBlink();
+          if (typeof window.setLoginFaceError === 'function') window.setLoginFaceError(false);
+          setLoginError('');
+        });
+      }
+      function clearLoginErrorState() {
+        if (typeof window.setLoginFaceError === 'function') window.setLoginFaceError(false);
+        setLoginError('');
+      }
+      document.getElementById('loginUser').addEventListener('input', clearLoginErrorState);
+      document.getElementById('loginPass').addEventListener('input', clearLoginErrorState);
+      window.getLoginMode = function () { return currentMode; };
+      window.updateHeaderModeBadge = function (mode) {
+        if (mode !== 'agent' && mode !== 'human') return;
+        currentMode = mode;
+        if (headerBadge) headerBadge.setAttribute('data-mode', mode);
+        if (headerLabel) headerLabel.textContent = mode === 'agent' ? 'agent' : 'human';
+        if (headerBadge) headerBadge.setAttribute('aria-label', 'Session mode: ' + (mode === 'agent' ? 'agent' : 'human'));
+        if (switchEl) switchEl.checked = (mode === 'agent');
+      };
     })();
 
     // Classic terminal mode: persist in localStorage, apply to body
@@ -792,7 +1098,7 @@
           body: opts.body ? JSON.stringify(opts.body) : undefined,
         });
         const data = await res.json().catch(() => ({}));
-        if (res.status === 401) {
+        if (res.status === 401 && token) {
           clearSession();
           return { ok: false, status: 401 };
         }
@@ -817,11 +1123,16 @@
       inboxLoadedOnce = false;
       if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
       document.getElementById('app').classList.remove('ready');
-      document.getElementById('login').style.display = 'block';
+      document.getElementById('login').style.display = 'flex';
+      hideLoginPending();
+      document.getElementById('login-box').classList.add('logged-out');
       document.getElementById('loginUser').value = '';
       document.getElementById('loginPass').value = '';
       setLoginError('');
     }
+    document.getElementById('btnSignInAgain').addEventListener('click', function () {
+      document.getElementById('login-box').classList.remove('logged-out');
+    });
 
     async function logout() {
       try {
@@ -871,21 +1182,37 @@
       return marked.parse(safe);
     }
 
+    function showLoginPending(message) {
+      const box = document.getElementById('login-box');
+      const msgEl = document.getElementById('login-loading-msg');
+      if (box) box.classList.add('pending');
+      if (msgEl) msgEl.textContent = message;
+    }
+    function hideLoginPending() {
+      const box = document.getElementById('login-box');
+      if (box) box.classList.remove('pending');
+    }
+
     document.getElementById('btnLogin').onclick = async () => {
       const user = document.getElementById('loginUser').value.trim();
       const pass = document.getElementById('loginPass').value;
       if (!user || !pass) { setLoginError('username and password required'); return; }
       setLoginError('');
-      const r = await api('/auth/login', { method: 'POST', body: { username: user, password: pass } });
+      const mode = (window.getLoginMode && window.getLoginMode()) || 'agent';
+      const humanLabel = mode === 'human' ? 'human' : 'agent';
+      showLoginPending(humanLabel + ' is logging in....');
+      const r = await api('/auth/login', { method: 'POST', body: { username: user, password: pass, mode: mode } });
       if (r.ok && r.data && r.data.token) {
         token = r.data.token;
         me = r.data.username;
         document.getElementById('login').style.display = 'none';
         document.getElementById('app').classList.add('ready');
         document.getElementById('username').textContent = me;
+        if (window.updateHeaderModeBadge) window.updateHeaderModeBadge(r.data.kind || (window.getLoginMode && window.getLoginMode()) || 'agent');
         startPoll();
         loadInbox();
       } else {
+        hideLoginPending();
         setLoginError(r.data?.error || 'login failed');
       }
     };
@@ -895,22 +1222,27 @@
       const pass = document.getElementById('loginPass').value;
       if (!user || !pass) { setLoginError('username and password required'); return; }
       setLoginError('');
-      const r = await api('/auth/register', { method: 'POST', body: { username: user, password: pass } });
+      const mode = (window.getLoginMode && window.getLoginMode()) || 'agent';
+      const humanLabel = mode === 'human' ? 'human' : 'agent';
+      showLoginPending('Registering ' + humanLabel + '....');
+      const r = await api('/auth/register', { method: 'POST', body: { username: user, password: pass, mode: mode } });
       if (r.ok && r.data && r.data.token) {
         token = r.data.token;
         me = r.data.username;
         document.getElementById('login').style.display = 'none';
         document.getElementById('app').classList.add('ready');
         document.getElementById('username').textContent = me;
+        if (window.updateHeaderModeBadge) window.updateHeaderModeBadge(r.data.kind || mode);
         startPoll();
         loadInbox();
       } else {
+        hideLoginPending();
         setLoginError(r.data?.error || 'registration failed');
       }
     };
 
     document.getElementById('login').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && document.getElementById('login').style.display !== 'none') {
+      if (e.key === 'Enter' && document.getElementById('login').style.display === 'flex') {
         e.preventDefault();
         document.getElementById('btnLogin').click();
       }
@@ -979,6 +1311,22 @@
         d.className = 'online-dot';
         d.title = 'online';
         row.insertBefore(d, withEl);
+      }
+      const kindBadge = document.getElementById('chatOtherKind');
+      const kindLabel = document.getElementById('chatOtherKindLabel');
+      const conv = inboxList.find(function (x) { return x.conversationId === currentConvId; });
+      const otherKind = (conv && (conv.otherUserKind === 'agent' || conv.otherUserKind === 'human')) ? conv.otherUserKind : 'human';
+      const myKind = (window.getLoginMode && window.getLoginMode()) || (document.getElementById('headerModeBadge') && document.getElementById('headerModeBadge').getAttribute('data-mode')) || 'agent';
+      const showBadge = otherKind !== myKind;
+      if (kindBadge && kindLabel) {
+        if (showBadge) {
+          kindBadge.setAttribute('data-mode', otherKind);
+          kindBadge.setAttribute('aria-label', otherKind);
+          kindLabel.textContent = otherKind;
+          kindBadge.style.display = '';
+        } else {
+          kindBadge.style.display = 'none';
+        }
       }
       const ts = lastSeenAtMap.get(currentWith);
       if (ts != null) {
