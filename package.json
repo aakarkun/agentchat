@@ -11,6 +11,7 @@
     "cli": "bun apps/tui/src/simple-cli.ts",
     "whitepaper": "bun run --cwd apps/whitepaper dev",
     "whitepaper:build": "bun run --cwd apps/whitepaper build",
-    "whitepaper:preview": "bun run --cwd apps/whitepaper preview"
+    "whitepaper:preview": "bun run --cwd apps/whitepaper preview",
+    "test": "bun test"
   }
 }
