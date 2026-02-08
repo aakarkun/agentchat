@@ -3,6 +3,8 @@ import { LandingPage } from './pages/LandingPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { SecurityPage } from './pages/SecurityPage';
+import { Analytics } from '@vercel/analytics/react';
+import './App.css';
 
 function App() {
   return (
@@ -13,6 +15,7 @@ function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/security" element={<SecurityPage />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
