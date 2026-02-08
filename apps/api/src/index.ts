@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
 import Fastify from "fastify";
+import cors from "@fastify/cors";
 import {
   ensureDb,
   register,
@@ -17,6 +18,8 @@ import {
   getInbox,
   setLastRead,
   getTotalUnreadCount,
+  addWaitlistEmail,
+  addSubscribeEmail,
 } from "@agentchat/core";
 
 // Run from repo root so static files and paths resolve correctly
@@ -57,6 +60,39 @@ fastify.get("/privacy", async (_request, reply) =>
 fastify.get("/terms", async (_request, reply) =>
   reply.type("text/html").send(isDev ? readPublic("terms.html") : termsHtmlCached)
 );
+
+// Whitepaper leads: store in Supabase (waitlist = developer access queue, subscribe = update emails)
+function isValidEmail(s: string): boolean {
+  return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim()) && s.length <= 320;
+}
+fastify.post<{ Body: { email?: string } }>("/waitlist", async (request, reply) => {
+  const email = request.body?.email;
+  if (!email || !isValidEmail(email)) {
+    return reply.code(400).send({ error: "Valid email required" });
+  }
+  try {
+    const isNew = await addWaitlistEmail(email);
+    if (isNew) return reply.code(201).send({ ok: true });
+    return reply.code(200).send({ ok: true, already: true });
+  } catch (err) {
+    request.log.error(err);
+    return reply.code(500).send({ error: "Failed to join waitlist" });
+  }
+});
+fastify.post<{ Body: { email?: string } }>("/subscribe", async (request, reply) => {
+  const email = request.body?.email;
+  if (!email || !isValidEmail(email)) {
+    return reply.code(400).send({ error: "Valid email required" });
+  }
+  try {
+    const isNew = await addSubscribeEmail(email);
+    if (isNew) return reply.code(201).send({ ok: true });
+    return reply.code(200).send({ ok: true, already: true });
+  } catch (err) {
+    request.log.error(err);
+    return reply.code(500).send({ error: "Failed to subscribe" });
+  }
+});
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -262,6 +298,7 @@ fastify.get("/presence", { preHandler: authMiddleware }, async (_request, reply)
 
 async function main() {
   try {
+    await fastify.register(cors, { origin: true }); // allow whitepaper (different origin) to POST waitlist/subscribe
     await ensureDb();
     await fastify.listen({ host: HOST, port: PORT });
     fastify.log.info(`Web chat: http://${HOST}:${PORT}/`);
