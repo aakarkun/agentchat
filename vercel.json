@@ -1,7 +1,6 @@
 {
-  "buildCommand": "bun run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
+  "buildCommand": "bun run whitepaper:build",
+  "outputDirectory": "apps/whitepaper/dist",
   "installCommand": "bun install",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
