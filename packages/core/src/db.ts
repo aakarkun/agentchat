@@ -207,3 +207,27 @@ export async function getTotalUnreadCount(username: string): Promise<number> {
   const inbox = await getInbox(username);
   return inbox.reduce((s, e) => s + e.unread_count, 0);
 }
+
+/** Whitepaper: add email to waitlist (developer access queue). Returns true if new, false if already on waitlist. */
+export async function addWaitlistEmail(email: string): Promise<boolean> {
+  const s = getSql();
+  const normalized = email.trim().toLowerCase();
+  const rows = await s`
+    INSERT INTO waitlist (email) VALUES (${normalized})
+    ON CONFLICT (email) DO NOTHING
+    RETURNING id
+  ` as { id: number }[];
+  return rows.length > 0;
+}
+
+/** Whitepaper: add email to subscribe (update emails). Returns true if new, false if already subscribed. */
+export async function addSubscribeEmail(email: string): Promise<boolean> {
+  const s = getSql();
+  const normalized = email.trim().toLowerCase();
+  const rows = await s`
+    INSERT INTO subscribe (email) VALUES (${normalized})
+    ON CONFLICT (email) DO NOTHING
+    RETURNING id
+  ` as { id: number }[];
+  return rows.length > 0;
+}
