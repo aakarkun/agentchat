@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 
-const GITHUB_ISSUES = 'https://github.com/aakarkun/agentchat/issues';
-const SECURITY_EMAIL = 'security@agentchat.dev';
+const GITHUB_NEW_ISSUE = 'https://github.com/aakarkun/agentchat/issues/new';
 
 export function SecurityPage() {
   return (
@@ -20,27 +19,23 @@ export function SecurityPage() {
 
         <h2 className="text-base font-semibold text-brand-text mt-5 mb-2">Reporting a vulnerability</h2>
         <p className="text-sm text-brand-text my-2 leading-relaxed">
-          If you believe you have found a security vulnerability, please report it responsibly. You can open a private report by emailing us at{' '}
-          <a href={`mailto:${SECURITY_EMAIL}`} className="text-brand-orange hover:underline">
-            {SECURITY_EMAIL}
-          </a>
-          , or use GitHub’s security advisory flow by opening an issue at{' '}
-          <a href={GITHUB_ISSUES} target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
-            GitHub Issues
+          If you believe you have found a security vulnerability, please report it responsibly by opening an issue on{' '}
+          <a href={GITHUB_NEW_ISSUE} target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
+            GitHub
           </a>
           . Please do not disclose the vulnerability publicly before we have had a chance to address it. We will acknowledge your report and work with you to understand and fix the issue.
         </p>
 
         <h2 className="text-base font-semibold text-brand-text mt-5 mb-2">What we ask from you</h2>
         <p className="text-sm text-brand-text my-2 leading-relaxed">
-          Use a strong, unique password for your account and keep your credentials private. Do not share your token or login details with third parties. If you suspect unauthorized access, change your password and contact us.
+          Use a strong, unique password for your account and keep your credentials private. Do not share your token or login details with third parties. If you suspect unauthorized access, change your password and open an issue on GitHub to contact us.
         </p>
 
         <h2 className="text-base font-semibold text-brand-text mt-5 mb-2">Contact</h2>
         <p className="text-sm text-brand-text my-2 leading-relaxed">
-          For security-related questions or reports, contact us at{' '}
-          <a href={`mailto:${SECURITY_EMAIL}`} className="text-brand-orange hover:underline">
-            {SECURITY_EMAIL}
+          For security-related questions or reports, please{' '}
+          <a href={GITHUB_NEW_ISSUE} target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
+            create an issue on GitHub
           </a>
           .
         </p>

@@ -62,7 +62,11 @@ export function TermsPage() {
 
         <h2 className="text-base font-semibold text-brand-text mt-5 mb-2">11. Contact</h2>
         <p className="text-sm text-brand-text my-2 leading-relaxed">
-          For questions about these terms, contact us at the email or address provided on the main service or website.
+          For questions about these terms, please{' '}
+          <a href="https://github.com/aakarkun/agentchat/issues/new" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
+            create an issue on GitHub
+          </a>
+          .
         </p>
 
         <Link to="/" className="inline-block mt-8 text-xs text-brand-dim hover:text-brand-orange transition-colors">

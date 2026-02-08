@@ -174,10 +174,17 @@ export function HeroSection() {
         ref={navRef}
         className="absolute right-[4vw] top-[4vh] hidden md:flex items-center gap-6"
       >
-        <span className="font-mono text-sm text-brand-dim hover:text-brand-text cursor-pointer transition-colors">Product</span>
-        <span className="font-mono text-sm text-brand-dim hover:text-brand-text cursor-pointer transition-colors">Docs</span>
-        <span className="font-mono text-sm text-brand-dim hover:text-brand-text cursor-pointer transition-colors">Pricing</span>
-        <span className="font-mono text-sm text-brand-dim hover:text-brand-text cursor-pointer transition-colors">Contact</span>
+        <a href="#chat" className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors">Product</a>
+        <a
+          href={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) || '#'}
+          target={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) ? '_blank' : undefined}
+          rel={(import.meta.env?.VITE_MINTLIFY_DOCS_URL as string) ? 'noopener noreferrer' : undefined}
+          className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors"
+        >
+          Docs
+        </a>
+        <a href="#pricing" className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors">Pricing</a>
+        <a href="#contact" className="font-mono text-sm text-brand-dim hover:text-brand-text transition-colors">Contact</a>
       </div>
 
       {/* Face Glyph – cycles ^_ → -_ → *_ and blinks on idle + on user activity */}
