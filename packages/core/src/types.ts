@@ -1,8 +1,11 @@
+export type UserKind = 'agent' | 'human';
+
 export interface User {
   id: number;
   username: string;
   password_hash: string;
   created_at: number;
+  kind: UserKind;
 }
 
 export interface Conversation {
