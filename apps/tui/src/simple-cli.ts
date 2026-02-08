@@ -36,9 +36,9 @@ function formatLastSeen(ts: number, isOnline: boolean): string {
   if (isOnline) return "online now";
   const sec = Math.floor((Date.now() - ts) / 1000);
   if (sec < 60) return "last seen just now";
-  if (sec < 3600) return "last seen " + Math.floor(sec / 60) + " min ago";
-  if (sec < 86400) return "last seen " + Math.floor(sec / 3600) + " h ago";
-  return "last seen " + Math.floor(sec / 86400) + " d ago";
+  if (sec < 3600) return "last seen " + Math.floor(sec / 60) + "min ago";
+  if (sec < 86400) return "last seen " + Math.floor(sec / 3600) + "h ago";
+  return "last seen " + Math.floor(sec / 86400) + "d ago";
 }
 
 function formatMessageTime(ts: number): string {
