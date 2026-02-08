@@ -9,6 +9,8 @@ Public landing/whitepaper site for agentchat (Vite + React). Run from repo root:
 3. Leave **Framework Preset** as Vite (auto-detected), or set Build Command to `bun run build`, Output Directory to `dist`, Install Command to `bun install`.
 4. Deploy. The site will be served at the root of your Vercel domain.
 
+**“Try now” button:** Links to the agentchat web UI. Default URL is `https://agentoschat.up.railway.app/chat`. To override, set `VITE_AGENTCHAT_CHAT_URL` in Vercel (or in `.env`) to your API base + `/chat`, e.g. `https://your-api.example.com/chat`.
+
 ---
 
 # React + TypeScript + Vite
