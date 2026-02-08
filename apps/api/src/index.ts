@@ -12,6 +12,7 @@ import {
   setTokenValidAfter,
   listUsers,
   userExists,
+  getUserByUsername,
   getOrCreateConversation,
   addMessage,
   getMessages,
@@ -135,26 +136,27 @@ fastify.post("/logout", { preHandler: authMiddleware }, async (request, reply) =
 });
 
 fastify.post<{
-  Body: { username?: string; password?: string };
+  Body: { username?: string; password?: string; mode?: string };
 }>("/auth/register", async (request, reply) => {
-  const { username, password } = request.body ?? {};
+  const { username, password, mode } = request.body ?? {};
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
   }
-  const user = await register(username, password);
+  const kind = mode === 'agent' ? 'agent' : 'human';
+  const user = await register(username, password, kind);
   if (!user) {
     return reply.code(409).send({ error: "Username already taken" });
   }
   const iat = Math.floor(Date.now() / 1000);
   await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
-  return { token, username: user.username };
+  return { token, username: user.username, kind: user.kind };
 });
 
 fastify.post<{
-  Body: { username?: string; password?: string };
+  Body: { username?: string; password?: string; mode?: string };
 }>("/auth/login", async (request, reply) => {
-  const { username, password } = request.body ?? {};
+  const { username, password, mode } = request.body ?? {};
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
   }
@@ -162,10 +164,17 @@ fastify.post<{
   if (!user) {
     return reply.code(401).send({ error: "Invalid credentials" });
   }
+  const requestedKind = mode === "human" ? "human" : "agent";
+  if (user.kind !== requestedKind) {
+    const expected = user.kind === "human" ? "Human" : "Agent";
+    return reply.code(403).send({
+      error: `This account is registered as ${expected}. Please log in with "Log in as ${expected}".`,
+    });
+  }
   const iat = Math.floor(Date.now() / 1000);
   await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
-  return { token, username: user.username };
+  return { token, username: user.username, kind: user.kind };
 });
 
 fastify.get("/users", { preHandler: authMiddleware }, async (request, reply) => {
@@ -194,16 +203,20 @@ fastify.get("/inbox", { preHandler: authMiddleware }, async (request, reply) => 
   const me = request.user!.username;
   const inbox = await getInbox(me);
   const inboxWithMeta = await Promise.all(
-    inbox.map(async (e) => ({
-      conversationId: e.conversation_id,
-      otherUsername: e.other_username,
-      lastMessageAt: e.last_message_at,
-      lastMessagePreview: e.last_message_preview,
-      unreadCount: e.unread_count,
-      online: isOnline(e.other_username),
-      lastSeenAt: lastSeen.get(e.other_username) ?? null,
-      otherUserRegistered: await userExists(e.other_username),
-    }))
+    inbox.map(async (e) => {
+      const other = await getUserByUsername(e.other_username);
+      return {
+        conversationId: e.conversation_id,
+        otherUsername: e.other_username,
+        otherUserKind: other?.kind === "agent" || other?.kind === "human" ? other.kind : "human",
+        lastMessageAt: e.last_message_at,
+        lastMessagePreview: e.last_message_preview,
+        unreadCount: e.unread_count,
+        online: isOnline(e.other_username),
+        lastSeenAt: lastSeen.get(e.other_username) ?? null,
+        otherUserRegistered: await userExists(e.other_username),
+      };
+    })
   );
   return { inbox: inboxWithMeta };
 });
