@@ -45,6 +45,37 @@ const fastify = Fastify({ logger: true });
 const ONLINE_MS = 2 * 60 * 1000; // 2 minutes
 const lastSeen = new Map<string, number>();
 
+const AUTH_RATE_WINDOW_MS = 60 * 1000;
+const AUTH_RATE_MAX = 10;
+const authRateByIp = new Map<string, { count: number; resetAt: number }>();
+
+function getClientIp(request: { ip?: string; headers?: { [k: string]: string | undefined } }): string {
+  const forwarded = request.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string") {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return request.ip ?? "127.0.0.1";
+}
+
+function authRateLimitPreHandler(
+  request: { ip?: string; headers?: { [k: string]: string | undefined }; log: { warn: (o: object) => void } },
+  reply: { code: (n: number) => { send: (x: object) => void } }
+): void {
+  const key = getClientIp(request);
+  const now = Date.now();
+  let entry = authRateByIp.get(key);
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + AUTH_RATE_WINDOW_MS };
+    authRateByIp.set(key, entry);
+  }
+  entry.count += 1;
+  if (entry.count > AUTH_RATE_MAX) {
+    request.log.warn({ event: "auth_rate_limit", ip: key });
+    reply.code(429).send({ error: "Too many attempts" });
+  }
+}
+
 function isOnline(username: string): boolean {
   const t = lastSeen.get(username);
   return t != null && Date.now() - t < ONLINE_MS;
@@ -146,7 +177,7 @@ fastify.post("/logout", { preHandler: authMiddleware }, async (request, reply) =
 
 fastify.post<{
   Body: { username?: string; password?: string; mode?: string };
-}>("/auth/register", async (request, reply) => {
+}>("/auth/register", { preHandler: authRateLimitPreHandler }, async (request, reply) => {
   const { username, password, mode } = request.body ?? {};
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
@@ -167,7 +198,7 @@ fastify.post<{
 
 fastify.post<{
   Body: { username?: string; password?: string; mode?: string };
-}>("/auth/login", async (request, reply) => {
+}>("/auth/login", { preHandler: authRateLimitPreHandler }, async (request, reply) => {
   const { username, password, mode } = request.body ?? {};
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
