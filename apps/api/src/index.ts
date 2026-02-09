@@ -1,5 +1,24 @@
 import path from "path";
 import fs from "fs";
+
+// Load .env from repo root so DATABASE_URL etc. work regardless of cwd
+const root = path.resolve(import.meta.dir, "..", "..");
+const envPath = path.join(root, ".env");
+if (fs.existsSync(envPath)) {
+  const content = fs.readFileSync(envPath, "utf-8");
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed && !trimmed.startsWith("#") && trimmed.includes("=")) {
+      const eq = trimmed.indexOf("=");
+      const key = trimmed.slice(0, eq).trim();
+      let value = trimmed.slice(eq + 1).trim();
+      if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
+      else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
+      process.env[key] = value;
+    }
+  }
+}
+
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import {
@@ -24,7 +43,6 @@ import {
 } from "@agentchat/core";
 
 // Run from repo root so static files and paths resolve correctly
-const root = path.resolve(import.meta.dir, "..", "..");
 if (process.cwd() !== root) process.chdir(root);
 
 const HOST = process.env.HOST ?? "127.0.0.1";
@@ -93,8 +111,17 @@ const termsHtmlCached = readPublic("terms.html");
 function getChatHtml(): string {
   return isDev ? readPublic("chat.html") : chatHtmlCached;
 }
-fastify.get("/", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
-fastify.get("/chat", async (_request, reply) => reply.type("text/html").send(getChatHtml()));
+
+const CHAT_CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdn.hugeicons.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self'; img-src 'self' data: https:;";
+
+function sendChatPage(reply: { header: (k: string, v: string) => void; type: (t: string) => void; send: (body: string) => void }): void {
+  reply.header("Content-Security-Policy", CHAT_CSP);
+  reply.type("text/html").send(getChatHtml());
+}
+
+fastify.get("/", async (_request, reply) => sendChatPage(reply));
+fastify.get("/chat", async (_request, reply) => sendChatPage(reply));
 fastify.get("/privacy", async (_request, reply) =>
   reply.type("text/html").send(isDev ? readPublic("privacy.html") : privacyHtmlCached)
 );
@@ -172,6 +199,7 @@ fastify.post("/logout", { preHandler: authMiddleware }, async (request, reply) =
   const username = request.user!.username;
   await setTokenValidAfter(username, Math.floor(Date.now() / 1000));
   lastSeen.delete(username);
+  request.log.info({ event: "logout", username, ip: getClientIp(request) });
   return reply.send({ ok: true });
 });
 
@@ -179,17 +207,22 @@ fastify.post<{
   Body: { username?: string; password?: string; mode?: string };
 }>("/auth/register", { preHandler: authRateLimitPreHandler }, async (request, reply) => {
   const { username, password, mode } = request.body ?? {};
+  const ip = getClientIp(request);
   if (!username || !password) {
+    request.log.info({ event: "register_fail", reason: "required", ip });
     return reply.code(400).send({ error: "username and password required" });
   }
   if (!isValidAuthInput(username, password)) {
+    request.log.info({ event: "register_fail", reason: "validation_fail", ip });
     return reply.code(400).send({ error: "Invalid request" });
   }
   const kind = mode === 'agent' ? 'agent' : 'human';
   const user = await register(username, password, kind);
   if (!user) {
+    request.log.info({ event: "register_fail", reason: "username_taken", ip });
     return reply.code(409).send({ error: "Username already taken" });
   }
+  request.log.info({ event: "register_ok", username: user.username, ip });
   const iat = Math.floor(Date.now() / 1000);
   await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
@@ -200,23 +233,29 @@ fastify.post<{
   Body: { username?: string; password?: string; mode?: string };
 }>("/auth/login", { preHandler: authRateLimitPreHandler }, async (request, reply) => {
   const { username, password, mode } = request.body ?? {};
+  const ip = getClientIp(request);
   if (!username || !password) {
+    request.log.info({ event: "login_fail", reason: "required", ip });
     return reply.code(400).send({ error: "username and password required" });
   }
   if (!isValidAuthInput(username, password)) {
+    request.log.info({ event: "login_fail", reason: "validation_fail", ip });
     return reply.code(400).send({ error: "Invalid request" });
   }
   const user = await login(username, password);
   if (!user) {
+    request.log.info({ event: "login_fail", reason: "invalid_credentials", ip });
     return reply.code(401).send({ error: "Invalid credentials" });
   }
   const requestedKind = mode === "human" ? "human" : "agent";
   if (user.kind !== requestedKind) {
+    request.log.info({ event: "login_fail", reason: "wrong_kind", username: user.username, ip });
     const expected = user.kind === "human" ? "Human" : "Agent";
     return reply.code(403).send({
       error: `This account is registered as ${expected}. Please log in with "Log in as ${expected}".`,
     });
   }
+  request.log.info({ event: "login_ok", username: user.username, ip });
   const iat = Math.floor(Date.now() / 1000);
   await setTokenValidAfter(user.username, iat);
   const token = signToken(user.username, iat);
@@ -360,9 +399,18 @@ fastify.get("/presence", { preHandler: authMiddleware }, async (_request, reply)
   return { online, lastSeenAt };
 });
 
+function getAllowedCorsOrigins(): string[] | false {
+  const single = process.env.CORS_ORIGIN?.trim();
+  if (single) return [single];
+  const list = process.env.CORS_ORIGINS?.trim();
+  if (list) return list.split(",").map((s) => s.trim()).filter(Boolean);
+  return false;
+}
+
 async function main() {
   try {
-    await fastify.register(cors, { origin: true }); // allow whitepaper (different origin) to POST waitlist/subscribe
+    const corsOrigins = getAllowedCorsOrigins();
+    await fastify.register(cors, { origin: corsOrigins === false ? false : corsOrigins });
     await ensureDb();
     await fastify.listen({ host: HOST, port: PORT });
     fastify.log.info(`Web chat: http://${HOST}:${PORT}/`);
