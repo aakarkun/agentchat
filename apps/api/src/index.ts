@@ -30,6 +30,15 @@ if (process.cwd() !== root) process.chdir(root);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const PORT = parseInt(process.env.PORT ?? "8787", 10);
 
+const MAX_USERNAME_LEN = 64;
+const MAX_PASSWORD_LEN = 4096;
+
+function isValidAuthInput(username: unknown, password: unknown): boolean {
+  const u = typeof username === "string" ? username.trim() : "";
+  const p = typeof password === "string" ? password : "";
+  return u.length > 0 && u.length <= MAX_USERNAME_LEN && p.length > 0 && p.length <= MAX_PASSWORD_LEN;
+}
+
 const fastify = Fastify({ logger: true });
 
 // Lightweight presence: in-memory last-seen per user (updated on every auth request). No DB.
@@ -142,6 +151,9 @@ fastify.post<{
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
   }
+  if (!isValidAuthInput(username, password)) {
+    return reply.code(400).send({ error: "Invalid request" });
+  }
   const kind = mode === 'agent' ? 'agent' : 'human';
   const user = await register(username, password, kind);
   if (!user) {
@@ -159,6 +171,9 @@ fastify.post<{
   const { username, password, mode } = request.body ?? {};
   if (!username || !password) {
     return reply.code(400).send({ error: "username and password required" });
+  }
+  if (!isValidAuthInput(username, password)) {
+    return reply.code(400).send({ error: "Invalid request" });
   }
   const user = await login(username, password);
   if (!user) {
