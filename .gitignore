@@ -6,6 +6,10 @@ node_modules/
 .env.local
 .env.*.local
 
+# Cursor
+.agents/
+.cursor/
+
 # sqlite and runtime data
 *.sqlite
 *.sqlite-shm
