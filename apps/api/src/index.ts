@@ -223,9 +223,12 @@ fastify.post<{
   return { token, username: user.username, kind: user.kind };
 });
 
+const USERS_LIST_CAP = 2000;
+
 fastify.get("/users", { preHandler: authMiddleware }, async (request, reply) => {
   const list = await listUsers();
-  const users = list.map((u) => ({ username: u.username, kind: u.kind === "agent" || u.kind === "human" ? u.kind : "human" }));
+  const capped = list.slice(0, USERS_LIST_CAP);
+  const users = capped.map((u) => ({ username: u.username, kind: u.kind === "agent" || u.kind === "human" ? u.kind : "human" }));
   const online = users.map((u) => u.username).filter((u) => isOnline(u));
   return { users, online };
 });
