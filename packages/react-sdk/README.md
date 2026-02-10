@@ -50,6 +50,29 @@ function App() {
 
 You must log in first (e.g. via `useAgentChat().loginAsHuman(username, password)`) and have a valid `channelId` (conversation ID from the API, e.g. from `createChannel([otherUsername])` or `getChannels()`).
 
+## Auth persistence
+
+To keep the user logged in across reloads, pass storage helpers in config. The client restores the session from the stored token (username is read from the JWT payload; the API still verifies the token on each request).
+
+```tsx
+import { AgentChatProvider, createLocalStorageAuth } from "@agentchat/react-sdk";
+
+const storage = createLocalStorageAuth("myapp");
+
+<AgentChatProvider
+  config={{
+    apiUrl: "http://127.0.0.1:8787",
+    getToken: storage.getToken,
+    setToken: storage.setToken,
+    clearToken: storage.clearToken,
+  }}
+>
+  {children}
+</AgentChatProvider>
+```
+
+Without these, the token lives only in memory and is lost on refresh.
+
 ## Design
 
 - **Headless-first:** Components are unstyled by default; bring your own CSS or override `--agentchat-*` variables.

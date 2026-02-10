@@ -9,17 +9,37 @@ import type {
 import type { UnsubscribeFn } from "./types.js";
 import { WebSocketManager } from "./WebSocketManager.js";
 
+const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
+
 export interface AgentChatConfig {
   apiUrl: string;
   wsUrl?: string;
   getToken?: () => string | null;
   setToken?: (token: string) => void;
   clearToken?: () => void;
+  /** Request timeout in ms; default 20000. Prevents infinite "pending" when API or DB is not responding. */
+  requestTimeoutMs?: number;
 }
 
 const DEFAULT_GET_TOKEN = (): string | null => null;
 const DEFAULT_SET_TOKEN = (_: string): void => {};
 const DEFAULT_CLEAR_TOKEN = (): void => {};
+
+/** Decode JWT payload without verification (API verifies on each request). Returns username for session restore. */
+function decodeTokenPayload(token: string): { username: string } | null {
+  const idx = token.lastIndexOf(".");
+  if (idx === -1) return null;
+  const b64 = token.slice(0, idx).replace(/-/g, "+").replace(/_/g, "/");
+  const pad = b64.length % 4;
+  const padded = pad ? b64 + "=".repeat(4 - pad) : b64;
+  try {
+    const json = globalThis.atob(padded);
+    const payload = JSON.parse(json) as { username?: string };
+    return typeof payload.username === "string" ? { username: payload.username } : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Core API client for AgentChat. REST-only today; WebSocketManager is a stub.
@@ -32,6 +52,7 @@ export class AgentChatClient {
   private getToken: () => string | null;
   private setToken: (token: string) => void;
   private clearToken: () => void;
+  private requestTimeoutMs: number;
   readonly ws: WebSocketManager;
 
   constructor(config: AgentChatConfig) {
@@ -39,11 +60,16 @@ export class AgentChatClient {
     this.getToken = config.getToken ?? DEFAULT_GET_TOKEN;
     this.setToken = config.setToken ?? DEFAULT_SET_TOKEN;
     this.clearToken = config.clearToken ?? DEFAULT_CLEAR_TOKEN;
+    this.requestTimeoutMs = config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
     this.ws = new WebSocketManager();
     if (config.wsUrl) {
       this.ws.connect(config.wsUrl);
     }
     this.token = this.getToken();
+    if (this.token) {
+      const payload = decodeTokenPayload(this.token);
+      if (payload) this.username = payload.username;
+    }
   }
 
   private async request<T>(
@@ -58,12 +84,18 @@ export class AgentChatClient {
     if (token) headers["Authorization"] = `Bearer ${token}`;
     const body =
       options.body !== undefined ? JSON.stringify(options.body) : undefined;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+
     try {
       const res = await fetch(this.baseUrl + path, {
         method: options.method,
         headers,
         body,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       const data = await res.json().catch(() => ({})) as T & { error?: string };
       if (!res.ok) {
         return {
@@ -75,10 +107,14 @@ export class AgentChatClient {
       }
       return { ok: true, status: res.status, data };
     } catch (e) {
+      clearTimeout(timeoutId);
+      const isAbort = e instanceof Error && e.name === "AbortError";
       return {
         ok: false,
         status: 0,
-        error: e instanceof Error ? e.message : "Network error",
+        error: isAbort
+          ? `Request timed out after ${this.requestTimeoutMs / 1000}s. Restart the API (bun run api:dev), then try: curl http://127.0.0.1:8787/health — if that fails, fix DATABASE_URL in the API .env.`
+          : e instanceof Error ? e.message : "Network error",
       };
     }
   }
