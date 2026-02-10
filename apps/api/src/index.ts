@@ -23,6 +23,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import {
   ensureDb,
+  ping,
+  pingUsersTable,
   register,
   login,
   signToken,
@@ -77,8 +79,9 @@ function getClientIp(request: { ip?: string; headers?: { [k: string]: string | u
 }
 
 function authRateLimitPreHandler(
-  request: { ip?: string; headers?: { [k: string]: string | undefined }; log: { warn: (o: object) => void } },
-  reply: { code: (n: number) => { send: (x: object) => void } }
+  request: { ip?: string; headers?: { [k: string]: string | undefined }; log: { warn: (o: object) => void; info: (o: object) => void } },
+  reply: { code: (n: number) => { send: (x: object) => void } },
+  done: (err?: Error) => void
 ): void {
   const key = getClientIp(request);
   const now = Date.now();
@@ -91,7 +94,9 @@ function authRateLimitPreHandler(
   if (entry.count > AUTH_RATE_MAX) {
     request.log.warn({ event: "auth_rate_limit", ip: key });
     reply.code(429).send({ error: "Too many attempts" });
+    return;
   }
+  done();
 }
 
 function isOnline(username: string): boolean {
@@ -232,6 +237,7 @@ fastify.post<{
 fastify.post<{
   Body: { username?: string; password?: string; mode?: string };
 }>("/auth/login", { preHandler: authRateLimitPreHandler }, async (request, reply) => {
+  request.log.info({ event: "login_attempt", ip: getClientIp(request) });
   const { username, password, mode } = request.body ?? {};
   const ip = getClientIp(request);
   if (!username || !password) {
@@ -242,24 +248,54 @@ fastify.post<{
     request.log.info({ event: "login_fail", reason: "validation_fail", ip });
     return reply.code(400).send({ error: "Invalid request" });
   }
-  const user = await login(username, password);
-  if (!user) {
-    request.log.info({ event: "login_fail", reason: "invalid_credentials", ip });
-    return reply.code(401).send({ error: "Invalid credentials" });
-  }
-  const requestedKind = mode === "human" ? "human" : "agent";
-  if (user.kind !== requestedKind) {
-    request.log.info({ event: "login_fail", reason: "wrong_kind", username: user.username, ip });
-    const expected = user.kind === "human" ? "Human" : "Agent";
-    return reply.code(403).send({
-      error: `This account is registered as ${expected}. Please log in with "Log in as ${expected}".`,
+  const LOGIN_TIMEOUT_MS = 8_000;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("LOGIN_TIMEOUT")), LOGIN_TIMEOUT_MS);
+  });
+
+  try {
+    request.log.info({ event: "login_db_lookup_start", ip });
+    const user = await Promise.race([login(username, password), timeoutPromise]);
+    request.log.info({ event: "login_db_lookup_done", ip });
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    if (!user) {
+      request.log.info({ event: "login_fail", reason: "invalid_credentials", ip });
+      return reply.code(401).send({ error: "Invalid credentials" });
+    }
+    const requestedKind = mode === "human" ? "human" : "agent";
+    if (user.kind !== requestedKind) {
+      request.log.info({ event: "login_fail", reason: "wrong_kind", username: user.username, ip });
+      const expected = user.kind === "human" ? "Human" : "Agent";
+      return reply.code(403).send({
+        error: `This account is registered as ${expected}. Please log in with "Log in as ${expected}".`,
+      });
+    }
+    request.log.info({ event: "login_ok", username: user.username, ip });
+    const iat = Math.floor(Date.now() / 1000);
+    request.log.info({ event: "login_set_token_start", ip });
+    await setTokenValidAfter(user.username, iat);
+    request.log.info({ event: "login_set_token_done", ip });
+    const token = signToken(user.username, iat);
+    return reply.send({ token, username: user.username, kind: user.kind });
+  } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    if (err instanceof Error && err.message === "LOGIN_TIMEOUT") {
+      request.log.warn({ event: "login_timeout", ip });
+      return reply.code(504).send({
+        error:
+          "Login timed out. The database is not responding. Check DATABASE_URL in .env and try: curl http://127.0.0.1:8787/health",
+      });
+    }
+    request.log.error({ err, event: "login_error", ip });
+    return reply.code(500).send({
+      error:
+        "Login failed. The database may be unreachable. Check DATABASE_URL and run: curl http://127.0.0.1:8787/health",
     });
   }
-  request.log.info({ event: "login_ok", username: user.username, ip });
-  const iat = Math.floor(Date.now() / 1000);
-  await setTokenValidAfter(user.username, iat);
-  const token = signToken(user.username, iat);
-  return { token, username: user.username, kind: user.kind };
 });
 
 const USERS_LIST_CAP = 2000;
@@ -399,11 +435,37 @@ fastify.get("/presence", { preHandler: authMiddleware }, async (_request, reply)
   return { online, lastSeenAt };
 });
 
+fastify.get("/health", async (_request, reply) => {
+  const ok = await ping();
+  return reply.code(ok ? 200 : 503).send({ ok, db: ok ? "ok" : "unreachable" });
+});
+
+fastify.get("/auth/ready", async (request, reply) => {
+  const timeoutMs = 5000;
+  const timeoutPromise = new Promise<false>((resolve) => setTimeout(() => resolve(false), timeoutMs));
+  const result = await Promise.race([pingUsersTable().then((ok) => ok as boolean), timeoutPromise]);
+  const ok = result === true;
+  request.log.info({ event: "auth_ready_check", ok });
+  return reply.code(ok ? 200 : 503).send({
+    ok,
+    users_table: ok ? "reachable" : "timeout_or_error",
+  });
+});
+
 function getAllowedCorsOrigins(): string[] | false {
   const single = process.env.CORS_ORIGIN?.trim();
   if (single) return [single];
   const list = process.env.CORS_ORIGINS?.trim();
   if (list) return list.split(",").map((s) => s.trim()).filter(Boolean);
+  // In development, allow Vite/React dev servers (e.g. basic-chat on 5174) so CORS works without .env
+  if (process.env.NODE_ENV === "development") {
+    return [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:5174",
+    ];
+  }
   return false;
 }
 
