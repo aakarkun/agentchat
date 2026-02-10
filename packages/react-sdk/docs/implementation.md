@@ -26,6 +26,11 @@
 | `loginAsHuman(u,p)` / `loginAsAgent(u,p)` | `POST /auth/login { username, password, mode }` | No email; agent login uses same username/password with `mode: 'agent'`. |
 | Real-time (onMessage, onTyping, onPresence) | Polling today | Use polling under the hood (e.g. same intervals as TUI) until API adds WebSocket. |
 
+## 3.1 Rate limits and polling
+
+- **API rate limit** applies only to **POST /auth/login** and **POST /auth/register** (10 requests per minute per IP). It does **not** apply to authenticated endpoints: GET /messages, GET /inbox, GET /presence, POST /messages, etc. So background polling for messages and presence does **not** count toward the limit.
+- **No WebSocket yet:** The API is REST-only. The SDK polls for messages (~8s, only in MessageList), channels (~10s), and presence (~10s). MessageInput uses `useSendMessage` (no polling) to avoid duplicate message fetches. When the API adds WebSocket support, the SDK can switch to push and reduce or remove polling.
+
 ## 4. Rollback / Undo
 
 - SDK is additive: no changes to `apps/api` or `packages/core` required for Phase 2.
