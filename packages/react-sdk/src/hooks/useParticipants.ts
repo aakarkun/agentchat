@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentChat } from "./useAgentChat.js";
 import type { Channel, Participant } from "../services/types.js";
 
@@ -22,6 +22,9 @@ export function useParticipants(channelId: string) {
     }
   }, [client]);
 
+  const fetchPresenceRef = useRef(fetchPresence);
+  fetchPresenceRef.current = fetchPresence;
+
   useEffect(() => {
     if (!channelId || !currentUser) {
       setParticipants([]);
@@ -40,10 +43,10 @@ export function useParticipants(channelId: string) {
   }, [channelId, currentUser]);
 
   useEffect(() => {
-    fetchPresence();
-    const interval = setInterval(fetchPresence, 5000);
+    fetchPresenceRef.current();
+    const interval = setInterval(() => fetchPresenceRef.current(), 15_000);
     return () => clearInterval(interval);
-  }, [fetchPresence]);
+  }, []);
 
   return { participants, onlineStatus };
 }
@@ -60,9 +63,11 @@ export function useChannels(): {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const refetch = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const refetch = useCallback(async (backgroundRefresh = false) => {
+    if (!backgroundRefresh) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const list = await client.getChannels();
       setChannels(list);
@@ -74,11 +79,14 @@ export function useChannels(): {
     }
   }, [client]);
 
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+
   useEffect(() => {
-    refetch();
-    const interval = setInterval(refetch, 5000);
+    refetchRef.current();
+    const interval = setInterval(() => refetchRef.current(true), 15_000);
     return () => clearInterval(interval);
-  }, [refetch]);
+  }, []);
 
   const createChannel = useCallback(
     async (otherUsername: string) => {

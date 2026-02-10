@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useMessages } from "../../hooks/useMessages.js";
+import { useSendMessage } from "../../hooks/useMessages.js";
 import { useTypingIndicator } from "../../hooks/useTypingIndicator.js";
 
 export interface MessageInputProps {
@@ -19,7 +19,7 @@ export function MessageInput({
   showTypingIndicator: _showTypingIndicator = true,
   allowAttachments: _allowAttachments = false,
 }: MessageInputProps) {
-  const { sendMessage } = useMessages(channelId);
+  const { sendMessage } = useSendMessage(channelId);
   const { startTyping, stopTyping } = useTypingIndicator(channelId);
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
