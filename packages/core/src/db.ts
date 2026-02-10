@@ -12,17 +12,48 @@ function getSql(): ReturnType<typeof postgres> {
         "DATABASE_URL is required. Set it to your Supabase (or Postgres) connection string."
       );
     }
-    sql = postgres(DATABASE_URL, { max: 10 });
+    sql = postgres(DATABASE_URL, {
+      max: 1,
+      connect_timeout: 15,
+    });
   }
   return sql;
 }
 
-/** Connect to Postgres and ensure schema exists. Run once at startup. */
+/** Connect to Postgres and ensure schema exists. Run once at startup. Warms the connection so first login is not slow. */
 export async function initDb(): Promise<ReturnType<typeof postgres>> {
   if (sql) return sql;
   getSql();
+  await sql!`SELECT 1`;
+  try {
+    await sql!`SET statement_timeout = '10s'`;
+  } catch {
+    // Ignore if server doesn't support or rejects (e.g. restricted user)
+  }
   // Schema is applied via packages/core/supabase/01_initial.sql and 02_add_user_kind_and_leads.sql in Supabase; no-op here or run migrations if needed
   return sql!;
+}
+
+/** Run a trivial query; returns true if DB is reachable. Use for /health. */
+export async function ping(): Promise<boolean> {
+  try {
+    const s = getSql();
+    await s`SELECT 1`;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Run a trivial query against the users table; use to verify login path can reach DB. */
+export async function pingUsersTable(): Promise<boolean> {
+  try {
+    const s = getSql();
+    await s`SELECT 1 FROM users LIMIT 1`;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Unix seconds. Tokens with iat < this are invalid (logged out everywhere or superseded by newer login). */
