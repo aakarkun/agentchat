@@ -18,7 +18,10 @@
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts && npx tailwindcss -i src/input.css -o dist/styles.css --minify",
     "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "verify:core": "npm run build && node ./test/verify-core.mjs",
+    "verify:core:verbose": "DEBUG=agentchat:* npm run verify:core",
+    "verify": "npm run verify:core"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.1",
