@@ -21,7 +21,8 @@
     "lint": "eslint src",
     "verify:core": "npm run build && node ./test/verify-core.mjs",
     "verify:core:verbose": "DEBUG=agentchat:* npm run verify:core",
-    "verify": "npm run verify:core"
+    "verify": "npm run verify:core",
+    "serve:verify": "npm run build && npx serve . -l 4175"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "^1.1.1",

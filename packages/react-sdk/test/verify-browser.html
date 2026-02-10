@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>AgentChat Browser Core Verification</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        background: #0b0b0b;
+        color: #e5e5e5;
+        padding: 1.5rem;
+      }
+      .log {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+        white-space: pre-wrap;
+        background: #111827;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-top: 1rem;
+        max-height: 70vh;
+        overflow: auto;
+      }
+      .ok {
+        color: #22c55e;
+      }
+      .err {
+        color: #f97373;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>AgentChat Browser Core Verification</h1>
+    <p>
+      Open the devtools console (F12) for network details. Uses default API
+      <code>http://127.0.0.1:8787</code> and credentials unless you set
+      <code>AGENTCHAT_TEST_USER</code> / <code>AGENTCHAT_TEST_PASSWORD</code> in the console before load.
+    </p>
+    <div id="output" class="log"></div>
+
+    <script>
+      (function () {
+        var output = document.getElementById("output");
+        output.textContent = "Loading verification script…";
+        window.__agentchatLog = function (message, cssClass) {
+          var line = document.createElement("div");
+          if (cssClass) line.className = cssClass;
+          line.textContent = message;
+          output.appendChild(line);
+        };
+        window.onerror = function (msg, url, line, col, err) {
+          output.innerHTML = "";
+          window.__agentchatLog("Script error: " + msg, "err");
+          if (err && err.stack) window.__agentchatLog(err.stack, "err");
+          return false;
+        };
+        window.addEventListener("unhandledrejection", function (e) {
+          output.innerHTML = "";
+          window.__agentchatLog("Unhandled error: " + (e.reason && (e.reason.message || String(e.reason))), "err");
+          if (e.reason && e.reason.stack) window.__agentchatLog(e.reason.stack, "err");
+        });
+      })();
+    </script>
+    <script type="module">
+      import {
+        AgentChatClient,
+      } from "../dist/index.js";
+
+      const output = document.getElementById("output");
+      output.textContent = "";
+      function log(message, cssClass) {
+        if (window.__agentchatLog) window.__agentchatLog(message, cssClass);
+        else {
+          const line = document.createElement("div");
+          if (cssClass) line.className = cssClass;
+          line.textContent = message;
+          output.appendChild(line);
+        }
+      }
+
+      async function main() {
+        const config = {
+          apiUrl: window.AGENTCHAT_API_URL || "http://127.0.0.1:8787",
+          username: window.AGENTCHAT_TEST_USER || "testuser",
+          password: window.AGENTCHAT_TEST_PASSWORD || "testpass",
+        };
+
+        log(`API URL: ${config.apiUrl}`);
+
+        const client = new AgentChatClient({
+          apiUrl: config.apiUrl,
+          getToken: () => localStorage.getItem("agentchat_token"),
+          setToken: (token) => localStorage.setItem("agentchat_token", token),
+          clearToken: () => localStorage.removeItem("agentchat_token"),
+        });
+
+        try {
+          log("Test 1: loginAsAgent…");
+          const auth = await client.loginAsAgent(
+            config.username,
+            config.password
+          );
+          log(`  ✓ Logged in as ${auth.username} (${auth.kind})`, "ok");
+
+          log("Test 2: getChannels…");
+          const channels = await client.getChannels();
+          log(`  ✓ Found ${channels.length} channel(s)`, "ok");
+
+          if (channels.length > 0) {
+            const channelId = channels[0].conversationId;
+
+            log("Test 3: getMessages…");
+            const messages = await client.getMessages(channelId, {
+              limit: 20,
+            });
+            log(`  ✓ Loaded ${messages.length} message(s)`, "ok");
+
+            log("Test 4: sendMessage…");
+            const sent = await client.sendMessage(
+              channelId,
+              "[verify-browser] test message"
+            );
+            log(`  ✓ Sent message id=${sent.id}`, "ok");
+          } else {
+            log("  ℹ No channels yet; skipping messages / send", "ok");
+          }
+
+          log("Test 5: logout…");
+          await client.logout();
+          log("  ✓ Logout successful", "ok");
+
+          log("");
+          log("✅ Browser verification completed successfully", "ok");
+        } catch (error) {
+          console.error(error);
+          log("");
+          log("❌ Browser verification failed", "err");
+          log(String(error), "err");
+        }
+      }
+
+      main();
+    </script>
+  </body>
+  </html>
+
