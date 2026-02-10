@@ -1,5 +1,5 @@
 import React from "react";
-import type { Participant } from "../../services/types.js";
+import type { Participant } from "../../core/index.js";
 
 export interface AgentAvatarProps {
   participant: Participant;

@@ -11,7 +11,7 @@ export class WebSocketManager {
   private maxReconnectAttempts = 5;
   private eventHandlers = new Map<string, Set<(payload: unknown) => void>>();
 
-  connect(_token: string): void {
+  connect(_url?: string): void {
     // No-op until API supports WebSocket. Hooks use REST polling instead.
   }
 

@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { useAgentChat } from "./useAgentChat.js";
 
 /**
  * Typing indicator state. API has no typing events yet; this is a stub

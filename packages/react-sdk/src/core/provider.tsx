@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useEffect, useState } from "react";
-import { AgentChatClient } from "../services/AgentChatClient.js";
-import type { AgentChatConfig } from "../services/AgentChatClient.js";
-import type { AuthToken, Participant } from "../services/types.js";
+import { AgentChatClient } from "./client.js";
+import type { AgentChatConfig } from "./client.js";
+import type { AuthToken, Participant } from "./types.js";
 
 export interface AgentChatContextValue {
   client: AgentChatClient;

@@ -1,5 +1,5 @@
 import React from "react";
-import { useTypingIndicator } from "../../hooks/useTypingIndicator.js";
+import { useTypingIndicator } from "../../core/index.js";
 
 export interface TypingIndicatorProps {
   channelId: string;

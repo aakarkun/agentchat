@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useSendMessage } from "../../hooks/useMessages.js";
-import { useTypingIndicator } from "../../hooks/useTypingIndicator.js";
+import { useSendMessage, useTypingIndicator } from "../../core/index.js";
 
 export interface MessageInputProps {
   channelId: string;

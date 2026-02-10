@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentChat } from "./useAgentChat.js";
-import type { Message } from "../services/types.js";
+import type { Message } from "../types.js";
 
 const MESSAGE_POLL_MS = 10_000;
 

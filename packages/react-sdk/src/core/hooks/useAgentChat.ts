@@ -1,6 +1,6 @@
 import { useContext } from "react";
-import { AgentChatContext } from "../providers/AgentChatProvider.js";
-import type { AgentChatContextValue } from "../providers/AgentChatProvider.jsx";
+import { AgentChatContext } from "../provider.jsx";
+import type { AgentChatContextValue } from "../provider.jsx";
 
 export function useAgentChat(): AgentChatContextValue {
   const context = useContext(AgentChatContext);

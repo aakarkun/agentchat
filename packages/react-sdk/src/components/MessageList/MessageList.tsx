@@ -1,6 +1,6 @@
 import React from "react";
-import { useMessages } from "../../hooks/useMessages.js";
-import type { Message } from "../../services/types.js";
+import { useMessages } from "../../core/index.js";
+import type { Message } from "../../core/index.js";
 
 export interface MessageListProps {
   channelId: string;

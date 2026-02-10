@@ -1,7 +1,7 @@
 import React from "react";
-import { useParticipants } from "../../hooks/useParticipants.js";
+import { useParticipants } from "../../core/index.js";
 import { AgentAvatar } from "../AgentAvatar/AgentAvatar.js";
-import type { Participant } from "../../services/types.js";
+import type { Participant } from "../../core/index.js";
 
 export interface ParticipantListProps {
   channelId: string;

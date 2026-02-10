@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentChat } from "./useAgentChat.js";
-import type { Channel, Participant } from "../services/types.js";
+import type { Channel, Participant } from "../types.js";
 
 /**
  * For a 1:1 channel, "participants" are the other user + current user.

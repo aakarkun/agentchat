@@ -1,5 +1,3 @@
-export { ChatWindow } from "./ChatWindow/ChatWindow.js";
-export type { ChatWindowProps } from "./ChatWindow/ChatWindow.js";
 export { MessageList } from "./MessageList/MessageList.js";
 export type { MessageListProps } from "./MessageList/MessageList.js";
 export { MessageInput } from "./MessageInput/MessageInput.js";
