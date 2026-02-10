@@ -1,0 +1,38 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: system-ui, sans-serif; }
+#root { min-height: 100vh; }
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 260px;
+  border-right: 1px solid #e5e7eb;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.main { flex: 1; display: flex; flex-direction: column; }
+.chat-header { padding: 0.75rem 1rem; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+.messages { flex: 1; overflow: auto; padding: 1rem; }
+.input-wrap { padding: 1rem; border-top: 1px solid #e5e7eb; }
+
+.login-box {
+  max-width: 360px;
+  margin: 2rem auto;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.login-box h1 { margin-top: 0; font-size: 1.25rem; }
+.login-box label { display: block; margin-bottom: 0.25rem; font-weight: 500; }
+.login-box input { width: 100%; padding: 0.5rem; margin-bottom: 1rem; }
+.login-box button { padding: 0.5rem 1rem; margin-right: 0.5rem; cursor: pointer; }
+.error { color: #dc2626; margin-top: 0.5rem; }
+.channel-list { list-style: none; padding: 0; margin: 0; }
+.channel-list li { padding: 0.5rem; cursor: pointer; border-radius: 4px; }
+.channel-list li:hover { background: #f3f4f6; }
+.channel-list li.active { background: #e0e7ff; }
+.new-chat { margin-top: auto; }
