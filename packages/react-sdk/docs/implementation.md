@@ -2,8 +2,14 @@
 
 ## 1. Goal Summary
 
-- **What we're solving:** A reusable React SDK so external (and internal) apps can integrate AgentChat chat in under 5 minutes, with a composable, headless-first, type-safe API.
-- **System boundaries:** The SDK is a **client-only** package. It depends on the existing AgentChat REST API (no WebSocket today). It does not modify the API or the database.
+- **What we're solving:** A reusable React SDK so external (and internal) apps can integrate AgentChat chat in under 5 minutes, with a composable, type-safe API and an optional Shadcn-aligned default UI. The same UI can drive AgentChat (REST) or a user-provided LLM (e.g. Vercel AI SDK `useChat`).
+- **System boundaries:** The SDK is a **client-only** package. It depends on the existing AgentChat REST API (no WebSocket today). It does not implement LLM or streaming servers; it provides the `ChatSource` contract and `createLLMChatSource` so consumers can plug their own.
+
+## 1.1 Structure (core vs ui)
+
+- **core/** — Agent logic, `AgentChatClient`, types, hooks (`useMessages`, `useSendMessage`, `useChannels`, etc.), `AgentChatProvider`, utils. No UI.
+- **ui/** — Shadcn-aligned chat UI: `AgentChatUI`, `ChatWindow`, `Conversation`, `ChatMessage`, `PromptInput`, primitives, adapters (`messageToDisplayMessage`, `useAgentChatSource`, `createLLMChatSource`). UI consumes a unified `ChatSource` (messages, sendMessage, status) so one component works for both AgentChat and LLM.
+- **components/** — Legacy composable components (`MessageList`, `MessageInput`, `ParticipantList`, etc.) that use core hooks; still supported.
 
 ## 2. Key Risks
 
