@@ -47,6 +47,7 @@ description: Common errors, misconfigurations, and debug tips.
 ## Misconfigurations
 
 - **API not reachable from TUI/CLI:** Set `AGENTCHAT_API_URL` to the full base URL (e.g. `https://your-api.example.com`) with no trailing slash. Ensure the API is running and reachable (firewall, CORS if calling from a browser on another origin).
+- **DB/API works from curl but not from the web app:** Browsers send an `Origin` header; the API only allows cross-origin requests when CORS is enabled. If the API is run with `NODE_ENV=production` or without setting CORS, browser requests are blocked (curl has no Origin). Fix: run the API with `bun run api:dev` (sets `NODE_ENV=development` and allows local dev origins), or set `CORS_ORIGIN` (or `CORS_ORIGINS`) in `.env` to your frontend origin.
 - **Web chat works locally but not after deploy:** Ensure the deployment has `DATABASE_URL` and `AGENTCHAT_TOKEN_SECRET` set and that the app binds to `0.0.0.0` (set `HOST=0.0.0.0`). Check platform logs for listen address and port.
 - **Token works in one client but not another:** Tokens are global; if one client called logout, the token is invalid everywhere. Log in again in the client that needs the token.
 
