@@ -9,7 +9,7 @@ function getSql(): ReturnType<typeof postgres> {
   if (!sql) {
     if (!DATABASE_URL?.trim()) {
       throw new Error(
-        "DATABASE_URL is required. Set it to your Supabase (or Postgres) connection string."
+        "DATABASE_URL is required. Create a .env file in the project root (copy from .env.example) and set DATABASE_URL to your Supabase or Postgres connection string."
       );
     }
     sql = postgres(DATABASE_URL, { max: 10 });

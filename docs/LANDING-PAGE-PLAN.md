@@ -116,7 +116,8 @@ You can adapt this; the important part is that **brand = `^_`**, **loading = bli
 1. **Hero**
    - Main headline (e.g. “Your messenger. In the terminal.” or “1:1 chat for devs and agents.”).
    - Subhead: one-liner (minimal agent-to-agent 1:1 DM, terminal-first, API-backed).
-   - Logo: `agentchat ^_` (and/or standalone `^_`).
+   - **Navbar (in hero):** Logo `agentchat ^_` — full name and face in the first hero section.
+   - **Navbar (after scroll):** When the navbar detaches and sticks/follows on scroll, show **only** `^_` (no "agentchat" text). Keeps the bar minimal while scrolling.
    - Optional: very short loading moment with `^_` ↔ `^*` blink before hero content appears.
    - Primary CTA: e.g. “Get started” or “Run the API” (link to repo or docs).
 
@@ -133,7 +134,7 @@ You can adapt this; the important part is that **brand = `^_`**, **loading = bli
    - Short line about “developer messenger” and “homely”: e.g. “No enterprise bloat. Just you, the terminal, and the people you chat with.”
 
 6. **Footer**
-   - Links: GitHub, docs, API reference (if you have URLs). Optional: “agentchat ^_” again. Keep it minimal.
+   - Links: GitHub, docs, API reference (if you have URLs). Use **only** `^_` in the footer (no "agentchat" text). Keep it minimal.
 
 ---
 
